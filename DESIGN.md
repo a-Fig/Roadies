@@ -111,8 +111,12 @@ capacity 8 → 4; added `random` and the disconnected-screen preview.
   position)`.
   - If the match is your own ghost room, you **reactivate in place** — no LiveKit
     room switch, just an `active-changed` state update.
+  - If there's **no match anywhere** *and* your ghost room has no other active
+    members either, you also reactivate in place, rather than tearing the room
+    down and opening an identical-but-renamed one right next to it.
   - Otherwise you're removed from the old room and added to the target (reason
-    `reconnect`), or a brand new room is opened if there's no match at all.
+    `reconnect`), or a brand new room is opened if there's no match at all and
+    your ghost room still has other active members in it.
 - **`random`** (only while disconnected — while connected it's ignored entirely:
   no state change, no log): picks uniformly at random, via the injected `rng`,
   among open rooms (≥ 1 active member, `< 4`) **other than** your current ghost
@@ -159,7 +163,7 @@ audio. Disconnect = muted-to-everyone + deaf + removed from the room roster (a
 
 **Recognition:** the listener subscribes to every participant's audio and feeds
 it to the `Recognizer`. Production uses Google Speech-to-Text streaming with the
-six words boosted as phrase hints; streams are restarted before Google's
+seven words boosted as phrase hints; streams are restarted before Google's
 per-stream time limit. Aliases (e.g. "un mute") are normalized. Google's top 5
 guesses are checked: a lower guess counts only when the best guess is one or two
 words, so conversation never triggers. A few observed mishearings (e.g.
@@ -176,12 +180,22 @@ nothing is stored.
 - You join **muted**: you hear the room, the screen says `MUTED · say "unmute"`,
   and saying "unmute" is the first thing you do.
 - Each joiner gets a random car identity and a **server-assigned spot**. The
-  assignment is scripted so every rule shows up early on the projector:
-  - the first wave (6 cars) fills **Hospital Curve** past capacity (4) → a
-    second room opens;
-  - later joiners spread across the other jams;
-  - periodically a **lone commuter** spawns far south (Morgan Hill / Gilroy),
-    sits alone, then gets merged after 15 s.
+  assignment is scripted so every rule shows up early on the projector, and so
+  it stays deterministic under any-distance joining:
+  - the first **8** cars fill **Hospital Curve** past capacity (4) → a second
+    room opens, then 2 more top the overflow room up to a full 4, so no
+    partially-filled room is left open;
+  - later joiners are scripted in same-jam **groups of 4** (one room's worth)
+    — San Mateo, then SFO, then Palo Alto, then Mountain View, a lone
+    commuter, then Redwood City, then San Jose, then another lone commuter,
+    repeating. Grouping matters because joining is "closest free seat, any
+    distance," not "closest jam": finishing each jam's room before starting
+    the next guarantees every room is full when the next location's first car
+    arrives, so it always opens a genuinely new, local room instead of
+    bleeding into the last one;
+  - the scripted **lone commuters** spawn far south (Morgan Hill / Gilroy)
+    only between complete groups, once every room is full, so they actually
+    start out alone — they sit alone, then get merged after 15 s.
 - Jams (all 101 NB, spaced > 5 km apart so they read as distinct places on the
   map — room assignment itself is by capacity only, at any distance):
   San Jose (101/880), Mountain View (101/85), Palo Alto, Redwood City,
@@ -189,8 +203,9 @@ nothing is stored.
 - Cars inch north along the real highway geometry at crawl speed.
 - `?spot=<jam>` forces a spot (for scripted presenter/teammate phones).
 - `connect` and `random` aren't part of the scripted table demo (no phone is
-  ever disconnected on cue) — they're exercised in normal mode and by the e2e
-  tests.
+  ever disconnected on cue) — they're exercised in normal mode, by tapping
+  Disconnect/Connect/Random on any phone regardless of mode, and by the e2e
+  tests (including a dedicated test that taps the "random" card).
 
 ## 6. Normal mode
 
@@ -204,7 +219,9 @@ nothing is stored.
   ("🟢 Teal Civic is talking").
 - Whole screen tints **brake-light red** while muted/deafened, **go-green**
   accents while live, **amber** for warnings.
-- Three giant buttons: Mute, Deafen, Disconnect/Connect (Discord red).
+- While connected: three giant buttons, Mute, Deafen, Disconnect (Discord red).
+  While disconnected, the buttons are replaced by the two cards below (there is
+  no merged Disconnect/Connect button).
 - Hint strip: `Say: mute · unmute · deafen · undeafen · disconnect`, flashing the
   last command heard. After disconnect: two tappable cards, one for `connect`
   and one for `random`, each showing the spoken command, a one-line
