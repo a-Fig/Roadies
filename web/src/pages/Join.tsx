@@ -1,4 +1,4 @@
-import { colorHex, type CarProfile, type LatLng, type Mode } from '@roadies/shared';
+import { colorHex, STATS_PATH, type CarProfile, type LatLng, type Mode, type PublicStats } from '@roadies/shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import { CarIcon } from '../components/icons';
 import { unlockAudio } from '../lib/chimes';
@@ -32,11 +32,38 @@ function currentPosition(): Promise<LatLng> {
   });
 }
 
+/** How many people are talking on Roadies right now; polled while `active`. Null until known. */
+function useDriversTalking(active: boolean): number | null {
+  const [talking, setTalking] = useState<number | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    let stopped = false;
+    const load = async () => {
+      try {
+        const res = await fetch(STATS_PATH, { cache: 'no-store' });
+        if (!res.ok) return;
+        const stats = (await res.json()) as PublicStats;
+        if (!stopped) setTalking(stats.talking);
+      } catch {
+        // Offline for a moment: keep showing the last number.
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 5_000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [active]);
+  return talking;
+}
+
 /** The one tap that unlocks mic + audio, then the driving screen. */
 export function Join({ mode, profile, spot, kicker, cta, footer }: JoinProps) {
   const [session, setSession] = useState<DriveSession | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const talking = useDriversTalking(!session);
 
   useEffect(() => {
     if (!session) return;
@@ -83,6 +110,12 @@ export function Join({ mode, profile, spot, kicker, cta, footer }: JoinProps) {
         <span>Roadies</span>
       </div>
       <p className="kicker">{kicker}</p>
+      {talking !== null && (
+        <p className="live-count">
+          <span className="live-dot" aria-hidden="true" />
+          {talking === 0 ? 'No one’s talking yet. Be the first.' : `${talking} ${talking === 1 ? 'driver' : 'drivers'} talking`}
+        </p>
+      )}
       <div className="car-card">
         <span className="avatar big" style={{ color: colorHex(profile.color) }}>
           <CarIcon />
