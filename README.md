@@ -71,6 +71,20 @@ npm run typecheck
 npm run e2e         # Playwright: real Chromium phones + local LiveKit + server
 ```
 
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on
+push to `main`, on `ubuntu-latest` with Node 22:
+
+- **check**: `npm ci`, `npm run typecheck`, `npm test`, `npm run build`.
+- **e2e**: `npm ci`, installs Chromium via Playwright, then `npm run e2e`
+  against a local LiveKit dev server and the app server with `RECOGNIZER=fake`
+  — no secrets or `.env` needed. On failure the HTML report and traces upload
+  as the `playwright-report` artifact.
+
+Both jobs run in parallel to keep wall time down. A new push to the same
+branch/PR cancels the previous run.
+
 ## Deploy (Google Cloud Run)
 
 One always-on instance: all state is in memory, and the command listener runs
