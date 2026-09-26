@@ -82,6 +82,9 @@ export class GoogleSpeechRecognizer implements Recognizer {
             }
           });
           s.on('error', (err: Error) => this.log(`[stt] ${participantId}: ${err.message}`));
+          // Google's stream emits 'end' after the last result but never 'close'.
+          // Saving is idempotent, so listen for both in case that changes.
+          s.on('end', () => this.save(participantId, u));
           s.on('close', () => this.save(participantId, u));
           stream = s;
           preroll.forEach(write);
