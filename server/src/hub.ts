@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
 import { COMMANDS, WS_PATH, type ClientMessage, type Command, type LatLng, type PresenterAction } from '@roadies/shared';
 import { WebSocket, WebSocketServer } from 'ws';
-import type { Send, World } from './world';
+import { carIdFor, type Send, type World } from './world';
 
 const HEARTBEAT_MS = 20_000;
 const PRESENTER_FPS = 4;
@@ -27,7 +27,7 @@ function parse(raw: unknown): Record<string, unknown> | null {
 
 /** Phones and the projector talk to the world over one WebSocket endpoint. */
 export function attachHub(server: Server, world: World, presenterKey: string) {
-  const wss = new WebSocketServer({ server, path: WS_PATH });
+  const wss = new WebSocketServer({ server, path: WS_PATH, maxPayload: 4096 });
   const presenters = new Set<WebSocket>();
   const alive = new WeakMap<WebSocket, boolean>();
 
@@ -48,6 +48,9 @@ export function attachHub(server: Server, world: World, presenterKey: string) {
       return;
     }
 
+    // The secret clientId this socket first said hello with, and the public
+    // car id (derived from it) that World's cars map is keyed by.
+    let boundClientId: string | null = null;
     let carId: string | null = null;
     const send: Send = (msg) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
@@ -60,9 +63,15 @@ export function attachHub(server: Server, world: World, presenterKey: string) {
           send({ t: 'error', message: 'Bad hello.' });
           return;
         }
+        // Once this socket is bound to a car, ignore a hello for a different
+        // clientId (a hello flood can't keep minting fresh cars on one socket).
+        // A re-hello with the SAME clientId still goes through: the reset
+        // flow depends on it.
+        if (boundClientId !== null && msg.clientId !== boundClientId) return;
         if (msg.pos !== undefined && !isLatLng(msg.pos)) delete msg.pos;
         if (msg.spot !== undefined && typeof msg.spot !== 'string') delete msg.spot;
-        carId = msg.clientId;
+        boundClientId = msg.clientId;
+        carId = carIdFor(msg.clientId);
         world.hello(msg, send);
       } else if (!carId) {
         return;

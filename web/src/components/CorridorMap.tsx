@@ -105,7 +105,13 @@ export function CorridorMap({ cars, roomColor, onCarClick, fitSignal, focus }: P
           icon: L.divIcon({ html, className: 'car-icon', iconSize: [22, 22] }),
           zIndexOffset: 1000,
         })
-          .bindTooltip(car.name, { direction: 'top', offset: [0, -10], className: 'car-tip' })
+          // A text node, not a string: Leaflet renders tooltip strings as HTML,
+          // and car.name is a driver-chosen string.
+          .bindTooltip(Object.assign(document.createElement('span'), { textContent: car.name }), {
+            direction: 'top',
+            offset: [0, -10],
+            className: 'car-tip',
+          })
           .on('click', () => clickRef.current?.(car))
           .addTo(m);
         markers.current.set(car.id, { marker, html });

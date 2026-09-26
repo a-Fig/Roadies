@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   applyCommand,
   INITIAL_VOICE_STATE,
@@ -24,6 +25,18 @@ import { DemoDirector, type Motion } from './demo';
 
 export type Send = (msg: ServerMessage) => void;
 type Hello = Extract<ClientMessage, { t: 'hello' }>;
+
+/**
+ * The car id everything outside World sees (roster, snapshot, LiveKit
+ * identity) — a one-way derivation of the secret clientId a phone sends in
+ * `hello`, so knowing another car's id never lets you prove you own it.
+ */
+export function carIdFor(clientId: string): string {
+  return createHash('sha256').update(clientId).digest('hex').slice(0, 16);
+}
+
+/** Hard cap on live cars, so a flood of hellos can't grow memory without bound. */
+export const MAX_CARS = 150;
 
 export interface Car {
   id: string;
@@ -94,14 +107,27 @@ export class World {
 
   /** A phone said hello: resume its car, or create and place a new one. */
   hello(msg: Hello, send: Send): void {
+    // A hex-derived id can never equal this, but reject it explicitly anyway
+    // so nobody can reason their way into the hidden listener's identity.
+    if (msg.clientId === this.opts.listenerIdentity) {
+      send({ t: 'error', message: 'That id is reserved.' });
+      return;
+    }
+
     const now = this.now();
-    const existing = this.cars.get(msg.clientId);
+    const id = carIdFor(msg.clientId);
+    const existing = this.cars.get(id);
     if (existing) {
       existing.send = send;
       existing.offlineSince = null;
       send({ t: 'welcome', id: existing.id, profile: existing.profile, state: existing.state, mode: existing.mode });
       const room = this.matchmaker.roomOf(existing.id);
       if (room) void this.sendAssigned(existing, room);
+      return;
+    }
+
+    if (this.cars.size >= MAX_CARS) {
+      send({ t: 'error', message: 'Roadies is full right now — try again later.' });
       return;
     }
 
@@ -120,8 +146,8 @@ export class World {
     }
 
     const car: Car = {
-      id: msg.clientId,
-      profile: sanitizeProfile(msg.profile),
+      id,
+      profile: sanitizeProfile(msg.profile, this.rng),
       mode: msg.mode,
       pos,
       heading,
@@ -356,11 +382,13 @@ export class World {
   }
 }
 
-function sanitizeProfile(p: CarProfile): CarProfile {
+function sanitizeProfile(p: CarProfile, rng: () => number): CarProfile {
+  // Allow-list: letters (any script), digits, spaces, simple punctuation.
+  // Markup and emoji both fall outside this set, so both are stripped.
   const clean = (s: unknown, max: number) =>
-    typeof s === 'string' ? s.replace(/[\u0000-\u001f]/g, '').trim().slice(0, max) : '';
+    typeof s === 'string' ? s.replace(/[^\p{L}\p{N} '.\-_!]/gu, '').trim().slice(0, max) : '';
   const make = clean(p?.make, 24) || 'Car';
   const color = clean(p?.color, 16) || 'Silver';
-  const name = clean(p?.name, 32) || `${color} ${make}`;
+  const name = clean(p?.name, 32) || randomCar(rng).name;
   return { name, make, color };
 }
