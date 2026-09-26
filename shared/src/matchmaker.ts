@@ -125,6 +125,23 @@ export class Matchmaker {
     return events;
   }
 
+  /**
+   * Always open a brand-new room for this member, ignoring any open seats
+   * elsewhere — unlike `place`, which would otherwise fold them into whatever
+   * closest room has space. Demo/presenter-only (`World.spawnLoner`, the `L`
+   * key): the whole point of spawning a lone commuter on cue is to show the
+   * 15 s alone-then-merge beat, which `place`'s any-distance joining would
+   * silently skip past by seating them with someone else immediately.
+   */
+  placeAlone(memberId: string, pos: LatLng, now: number): MatchEvent[] {
+    if (this.memberRoom.has(memberId)) throw new Error(`${memberId} is already placed`);
+    const target = this.createRoom(pos, now);
+    const events: MatchEvent[] = [{ type: 'room-created', roomId: target.id }];
+    this.addMember(target, { id: memberId, pos, active: true }, now);
+    events.push({ type: 'joined', memberId, roomId: target.id, reason: 'new-room' });
+    return events;
+  }
+
   updatePosition(memberId: string, pos: LatLng): void {
     const member = this.roomOf(memberId)?.members.get(memberId);
     if (member) member.pos = pos;
@@ -144,14 +161,18 @@ export class Matchmaker {
    * Re-match to the closest active driver with a free seat, right now, using
    * the current position — same rule as `place`. If that is the current ghost
    * room, reactivate in place (no leave/join, so the phone doesn't switch
-   * LiveKit rooms); otherwise leave the old room and join (or open) the new one.
+   * LiveKit rooms); otherwise leave the old room and join (or open) the new
+   * one. If there is no match anywhere *and* this ghost room has no other
+   * active members either, also reactivate in place instead of tearing it
+   * down and opening an identical-but-renamed room right next to it.
    */
   reconnect(memberId: string, now: number): MatchEvent[] {
     const room = this.roomOf(memberId);
     const member = room?.members.get(memberId);
     if (!room || !member || member.active) return [];
     const match = this.closestOpen(memberId, member.pos);
-    if (match && match.roomId === room.id) {
+    const staysPut = match ? match.roomId === room.id : this.activeCount(room) === 0;
+    if (staysPut) {
       member.active = true;
       this.refreshAlone(room, now);
       return [{ type: 'active-changed', memberId, roomId: room.id, active: true }];

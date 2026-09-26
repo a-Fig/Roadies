@@ -261,6 +261,42 @@ describe('disconnect / reconnect', () => {
     expect(mm.roomOf('b')).toBe(mm.roomOf('c'));
   });
 
+  it('moves you even when your own ghost room still has a free seat, if a closer room is open', () => {
+    const mm = make(3);
+    mm.place('a1', at(0), 0);
+    mm.place('a2', at(0.1), 0);
+    mm.place('g', at(0.2), 0); // room1 full (3/3)
+    mm.place('b1', at(1000), 0); // room1 full -> opens room2
+    mm.place('b2', at(1000.1), 0);
+    mm.place('b3', at(1000.2), 0); // room2 full (3/3)
+    mm.remove('a2', 0); // room1: 2 active (a1, g) — free seat, still has an active member
+    mm.remove('b3', 0); // room2: 2 active (b1, b2) — free seat too
+    mm.disconnect('g', 0); // g ghosts in room1, which still has a1 active with space
+    mm.updatePosition('g', at(1000.15)); // g is now physically much closer to room2
+
+    const room1 = mm.roomOf('g')!;
+    expect(mm.activeCount(room1)).toBe(1); // own room still has space, not solo-ghost
+    const events = mm.reconnect('g', 0);
+    expect(events.map((e) => e.type)).toEqual(['left', 'joined']);
+    expect(joinedRoom(events).reason).toBe('reconnect');
+    expect(mm.roomOf('g')).toBe(mm.roomOf('b1')); // moved to the closer room, not its own
+  });
+
+  it('reconnect uses the position set after disconnecting, not the stale one from when you left', () => {
+    const mm = make(3);
+    mm.place('a', at(0), 0);
+    mm.place('b', at(0.1), 0);
+    mm.place('g', at(0.2), 0); // room1 full (3/3)
+    mm.place('f1', at(1000), 0); // room1 full -> opens room2
+    mm.place('f2', at(1000.1), 0); // room2: 2/3, still has space
+    mm.remove('b', 0); // room1: 2 active (a, g), still has space
+    mm.disconnect('g', 0); // g ghosts near 'a' — closestOpen would currently match room1
+    mm.updatePosition('g', at(1000.05)); // drive the ghost near room2 instead
+
+    const events = mm.reconnect('g', 0);
+    expect(joinedRoom(events).roomId).toBe(mm.roomOf('f1')!.id);
+  });
+
   it('deletes the old room if the ghost was its last member', () => {
     const mm = make();
     mm.place('a', at(0), 0);
@@ -345,6 +381,47 @@ describe('Matchmaker.random', () => {
     expect(events).not.toBeNull();
     expect(mm.roomOf('b')).toBe(mm.roomOf('c'));
     expect(mm.roomOf('b')).not.toBe(mm.roomOf('a'));
+  });
+
+  it('excludes full rooms and rooms that only have ghosts', () => {
+    const mm = make(2);
+    mm.place('a', at(0), 0);
+    mm.place('me', at(0.1), 0); // room1 full (2/2)
+    mm.place('full1', at(1000), 0);
+    mm.place('full2', at(1000.1), 0); // room2 full (2/2) — must be excluded
+    mm.place('ghost', at(2000), 0);
+    mm.disconnect('ghost', 0); // room3: 0 active — must be excluded
+    mm.place('open1', at(3000), 0);
+    mm.place('open2', at(3000.1), 0); // room4: 2/2
+    mm.remove('open2', 0); // room4: 1 active, has space — the only valid candidate
+    mm.disconnect('me', 0);
+
+    expect(mm.hasRandomTarget('me')).toBe(true);
+    const events = mm.random('me', 0, () => 0)!;
+    expect(events).not.toBeNull();
+    expect(mm.roomOf('me')).toBe(mm.roomOf('open1'));
+  });
+});
+
+describe('Matchmaker.hasRandomTarget', () => {
+  it('is false when there are no other rooms, or the only other room is full', () => {
+    const mm = make(2);
+    mm.place('a', at(0), 0);
+    expect(mm.hasRandomTarget('a')).toBe(false); // nowhere else exists yet
+    mm.place('filler', at(0.05), 0); // fills a's own room (2/2) so the next placement opens a new one
+    mm.place('b1', at(1000), 0); // a's room full -> opens room2
+    mm.place('b2', at(1000.1), 0); // room2 full (2/2)
+    expect(mm.hasRandomTarget('a')).toBe(false);
+    mm.remove('b2', 0); // frees a seat
+    expect(mm.hasRandomTarget('a')).toBe(true);
+  });
+
+  it('is false when the only other room has nothing but ghosts', () => {
+    const mm = make(2);
+    mm.place('a', at(0), 0);
+    mm.place('g', at(1000), 0);
+    mm.disconnect('g', 0); // room2: 0 active members
+    expect(mm.hasRandomTarget('a')).toBe(false);
   });
 });
 
