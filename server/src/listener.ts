@@ -1,11 +1,15 @@
-import { AudioStream, Room, RoomEvent, TrackKind, type RemoteParticipant, type RemoteTrack } from '@livekit/rtc-node';
-import type { Recognizer, RecognizerSession, UtteranceInfo } from './recognizer/types';
+import { AudioStream, Room, RoomEvent, TrackKind, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication } from '@livekit/rtc-node';
+import type { Lang } from '@roadies/shared';
+import { RecognizerSessions } from './recognizer/sessions';
+import type { Recognizer, UtteranceInfo } from './recognizer/types';
 
 export interface ListenerOptions {
   url: string;
   identity: string;
   issueToken: (identity: string, name: string, room: string, opts: { hidden: boolean }) => Promise<string>;
   recognizer: Recognizer;
+  /** The language to hear a participant (a car id) in. */
+  langOf: (participantId: string) => Lang;
   /** `heard` is the n-best list for one utterance, best guess first. */
   onTranscript: (participantId: string, heard: readonly string[], info?: UtteranceInfo) => void;
   onSpeakers: (roomId: string, identities: string[]) => void;
@@ -14,7 +18,7 @@ export interface ListenerOptions {
 
 interface Joined {
   room: Room;
-  sessions: Map<string, RecognizerSession>;
+  sessions: RecognizerSessions;
 }
 
 /**
@@ -37,25 +41,41 @@ export class ListenerManager {
   /** Participants whose audio the listener is currently receiving, per room. */
   subscriptions(): Record<string, string[]> {
     const out: Record<string, string[]> = {};
-    for (const [id, j] of this.rooms) if (j !== 'joining') out[id] = [...j.sessions.keys()];
+    for (const [id, j] of this.rooms) if (j !== 'joining') out[id] = j.sessions.ids();
     return out;
+  }
+
+  /** A participant's language may have changed: hear them in the new one. */
+  refresh(participantId: string): void {
+    for (const j of this.rooms.values()) if (j !== 'joining') j.sessions.refresh(participantId);
   }
 
   async join(roomId: string): Promise<void> {
     if (this.rooms.has(roomId)) return;
     this.rooms.set(roomId, 'joining');
     const room = new Room();
-    const joined: Joined = { room, sessions: new Map() };
+    const joined: Joined = {
+      room,
+      sessions: new RecognizerSessions(this.o.recognizer, this.o.langOf, this.o.onTranscript),
+    };
 
-    room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub, participant: RemoteParticipant) => {
-      if (track.kind !== TrackKind.KIND_AUDIO) return;
-      void this.consume(joined, participant.identity, track);
-    });
-    room.on(RoomEvent.TrackUnsubscribed, (_track, _pub, participant: RemoteParticipant) => {
-      this.closeSession(joined, participant.identity);
-    });
+    room.on(
+      RoomEvent.TrackSubscribed,
+      (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+        if (track.kind !== TrackKind.KIND_AUDIO) return;
+        void this.consume(joined, participant.identity, publication.sid ?? '', track);
+      },
+    );
+    room.on(
+      RoomEvent.TrackUnsubscribed,
+      (_track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+        joined.sessions.close(participant.identity, publication.sid ?? '');
+      },
+    );
     room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
-      this.closeSession(joined, participant.identity);
+      // Only this participant's tracks: after a reload, the same identity may
+      // already be back with a new track.
+      for (const trackId of participant.trackPublications.keys()) joined.sessions.close(participant.identity, trackId);
     });
     room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
       this.o.onSpeakers(roomId, speakers.map((p) => p.identity));
@@ -81,7 +101,7 @@ export class ListenerManager {
     const joined = this.rooms.get(roomId);
     this.rooms.delete(roomId);
     if (!joined || joined === 'joining') return;
-    for (const id of [...joined.sessions.keys()]) this.closeSession(joined, id);
+    joined.sessions.closeAll();
     await joined.room.disconnect();
     this.log(`[listener] left ${roomId}`);
   }
@@ -90,27 +110,20 @@ export class ListenerManager {
     await Promise.all(this.roomIds.map((id) => this.leave(id)));
   }
 
-  private async consume(joined: Joined, identity: string, track: RemoteTrack): Promise<void> {
-    this.closeSession(joined, identity);
-    const session = this.o.recognizer.open(identity, (heard, info) => this.o.onTranscript(identity, heard, info));
-    joined.sessions.set(identity, session);
-    const stream = new AudioStream(track, { sampleRate: this.o.recognizer.sampleRate, numChannels: 1 });
+  private async consume(joined: Joined, identity: string, trackId: string, track: RemoteTrack): Promise<void> {
+    joined.sessions.open(identity, trackId);
     try {
+      // Inside the try: a track that is already gone makes rtc-node throw right here
+      // ("handle is not a livekit_ffi::server::room::FfiTrack"), and that rejection,
+      // unhandled, used to take the whole server down.
+      const stream = new AudioStream(track, { sampleRate: this.o.recognizer.sampleRate, numChannels: 1 });
       for await (const frame of stream) {
-        if (joined.sessions.get(identity) !== session) break;
-        session.write(frame.data);
+        if (!joined.sessions.write(identity, trackId, frame.data)) break;
       }
     } catch (err) {
       this.log(`[listener] audio stream for ${identity} ended: ${(err as Error).message}`);
     } finally {
-      if (joined.sessions.get(identity) === session) this.closeSession(joined, identity);
+      joined.sessions.close(identity, trackId);
     }
-  }
-
-  private closeSession(joined: Joined, identity: string): void {
-    const session = joined.sessions.get(identity);
-    if (!session) return;
-    joined.sessions.delete(identity);
-    session.close();
   }
 }

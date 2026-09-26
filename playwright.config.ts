@@ -18,6 +18,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:8080',
     ...devices['Pixel 7'],
+    locale: 'en-US',
     permissions: ['microphone'],
     trace: 'retain-on-failure',
     launchOptions: {

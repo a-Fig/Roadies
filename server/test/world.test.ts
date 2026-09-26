@@ -1,4 +1,4 @@
-import type { CarProfile, ServerMessage } from '@roadies/shared';
+import type { CarProfile, Lang, ServerMessage } from '@roadies/shared';
 import { describe, expect, it } from 'vitest';
 import { carIdFor, MAX_CARS, World } from '../src/world';
 
@@ -7,6 +7,7 @@ function setup() {
   let seed = 1;
   const created: string[] = [];
   const deleted: string[] = [];
+  const langChanges: [string, Lang][] = [];
   const world = new World({
     now: () => now,
     rng: () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646,
@@ -15,13 +16,20 @@ function setup() {
     listenerIdentity: 'roadies-listener',
     onRoomCreated: (id) => created.push(id),
     onRoomDeleted: (id) => deleted.push(id),
+    onLangChanged: (id, lang) => langChanges.push([id, lang]),
   });
   const inboxes = new Map<string, ServerMessage[]>();
   // `id` here is the secret clientId a phone would send; World only ever
   // exposes the derived public id (`pub(id)` below) to the outside world.
   const join = (
     id: string,
-    extra: { spot?: string; mode?: 'demo' | 'live'; pos?: { lat: number; lng: number }; profile?: CarProfile } = {},
+    extra: {
+      spot?: string;
+      mode?: 'demo' | 'live';
+      pos?: { lat: number; lng: number };
+      profile?: CarProfile;
+      lang?: string;
+    } = {},
   ) => {
     const inbox: ServerMessage[] = [];
     inboxes.set(id, inbox);
@@ -34,6 +42,8 @@ function setup() {
         profile: extra.profile ?? { name: `Car ${id}`, make: 'Civic', color: 'Teal' },
         spot: extra.spot,
         pos: extra.pos,
+        // A string, not a Lang: the server must cope with whatever a phone sends.
+        lang: extra.lang as Lang | undefined,
       },
       send,
     );
@@ -52,7 +62,7 @@ function setup() {
     }
   };
   const flush = () => new Promise((r) => setTimeout(r, 0));
-  return { world, join, pub, last, advance, flush, inboxes, created, deleted };
+  return { world, join, pub, last, advance, flush, inboxes, created, deleted, langChanges };
 }
 
 describe('World', () => {
@@ -105,6 +115,62 @@ describe('World', () => {
     t.join('car-aaaaa');
     expect(t.world.transcript(t.pub('car-aaaaa'), "please don't mute me")).toBeNull();
     expect(t.last('car-aaaaa', 'state')).toBeUndefined();
+  });
+
+  it("hears each car in its own language: a French car's \"coupe le micro\" mutes it, an English car's does not", () => {
+    const t = setup();
+    t.join('car-fr', { spot: 'sfo', lang: 'fr' });
+    t.join('car-en', { spot: 'sfo' });
+    expect(t.world.langOf(t.pub('car-fr'))).toBe('fr');
+    expect(t.world.langOf(t.pub('car-en'))).toBe('en');
+
+    expect(t.world.transcript(t.pub('car-fr'), ['Coupe le micro.'])).toBe('mute');
+    expect(t.last('car-fr', 'state')?.state.selfMute).toBe(true);
+
+    t.world.command(t.pub('car-en'), 'unmute', 'button');
+    expect(t.world.transcript(t.pub('car-en'), ['Coupe le micro.'])).toBeNull();
+    expect(t.last('car-en', 'state')?.state.selfMute).toBe(false);
+
+    // English still works for the French car.
+    expect(t.world.transcript(t.pub('car-fr'), 'unmute')).toBe('unmute');
+  });
+
+  it('stores the language from hello, falls back to English, and updates it on a later hello', () => {
+    const t = setup();
+    t.join('car-aaaaa', { lang: 'klingon' });
+    t.join('car-bbbbb');
+    expect(t.world.langOf(t.pub('car-aaaaa'))).toBe('en');
+    expect(t.world.langOf(t.pub('car-bbbbb'))).toBe('en');
+    expect(t.world.langOf('no-such-car')).toBe('en');
+
+    // Settings change -> reload -> hello again from the same phone.
+    t.join('car-aaaaa', { lang: 'vi' });
+    expect(t.world.langOf(t.pub('car-aaaaa'))).toBe('vi');
+    expect(t.langChanges).toEqual([[t.pub('car-aaaaa'), 'vi']]);
+    expect(t.world.transcript(t.pub('car-aaaaa'), 'tắt mic')).toBe('mute');
+
+    // Same language again: nothing to reopen.
+    t.join('car-aaaaa', { lang: 'vi' });
+    expect(t.langChanges).toHaveLength(1);
+  });
+
+  it('a returning phone brings its new name (e.g. the default name in a new language) to the room', async () => {
+    const t = setup();
+    const rouge = { name: 'Mustang rouge', make: 'Mustang', color: 'Red' };
+    t.join('car-aaaaa', { spot: 'sfo', lang: 'fr', profile: rouge });
+    t.join('car-bbbbb', { spot: 'sfo' });
+    await t.flush();
+
+    t.join('car-aaaaa', { spot: 'sfo', lang: 'es', profile: { ...rouge, name: 'Mustang rojo' } });
+    await t.flush();
+    expect(t.last('car-aaaaa', 'welcome')!.profile.name).toBe('Mustang rojo');
+    const names = t.last('car-bbbbb', 'roster')!.room.members.map((m) => m.name);
+    expect(names).toContain('Mustang rojo');
+    expect(names).not.toContain('Mustang rouge');
+
+    // A blank name keeps the one the car has.
+    t.join('car-aaaaa', { spot: 'sfo', lang: 'es', profile: { ...rouge, name: '  ' } });
+    expect(t.last('car-aaaaa', 'welcome')!.profile.name).toBe('Mustang rojo');
   });
 
   it('disconnect ghosts you out of the roster; connect brings you back', async () => {
@@ -261,6 +327,12 @@ describe('World', () => {
 
     t.join('car-uni', { profile: { name: "  Ñoño's Café_1! ", make: 'Civic', color: 'Teal' } });
     expect(t.world.getCar(t.pub('car-uni'))!.profile.name).toBe("Ñoño's Café_1!");
+
+    // Default names in other languages, including accents typed as combining marks.
+    t.join('car-vi', { profile: { name: 'Civic xanh ngọc', make: 'Civic', color: 'Teal' } });
+    expect(t.world.getCar(t.pub('car-vi'))!.profile.name).toBe('Civic xanh ngọc');
+    t.join('car-nfd', { profile: { name: 'Civic argentée', make: 'Civic', color: 'Silver' } });
+    expect(t.world.getCar(t.pub('car-nfd'))!.profile.name).toBe('Civic argentée');
   });
 
   it('falls back to a random car name when the sanitized name is empty', () => {

@@ -1,48 +1,60 @@
-import { CAR_COLORS, CAR_MAKES, colorHex, type CarProfile } from '@roadies/shared';
-import { useState } from 'react';
+import { CAR_COLORS, CAR_MAKES, colorHex, LANG_NAMES, LANGS, type CarProfile, type Lang } from '@roadies/shared';
+import { useEffect, useState } from 'react';
 import { CarIcon } from '../components/icons';
+import { colorLabel, defaultName, hasDefaultName, lang, setLang, strings } from '../lib/i18n';
 import { savedProfile, saveProfile } from '../lib/identity';
 
-/** Normal mode: pick your car and name once; saved on this device. */
+/**
+ * Settings (normal mode): language, car and name, saved on this device.
+ * Picking a language re-renders the page in it right away; Save keeps it.
+ */
 export function Setup() {
   const initial = savedProfile();
+  const [picked, setPicked] = useState<Lang>(lang());
   const [make, setMake] = useState<string>(initial?.make ?? 'Civic');
   const [color, setColor] = useState<string>(initial?.color ?? 'Teal');
-  const defaultName = `${color} ${make}`;
-  const [name, setName] = useState(initial && initial.name !== `${initial.color} ${initial.make}` ? initial.name : '');
+  // A default name ("Teal Civic", "Civic turquoise"…) is not something the driver typed.
+  const [name, setName] = useState(initial && !hasDefaultName(initial) ? initial.name : '');
+  const t = strings(picked);
+  const fallbackName = defaultName(picked, make, color);
+
+  useEffect(() => {
+    document.documentElement.lang = picked;
+  }, [picked]);
 
   const save = () => {
-    const profile: CarProfile = { make, color, name: name.trim() || defaultName };
+    const profile: CarProfile = { make, color, name: name.trim() || fallbackName };
+    setLang(picked);
     saveProfile(profile);
     location.assign('/');
   };
 
   return (
     <main className="setup">
-      <h1>Set up your car</h1>
-      <p className="car-sub">This is how other roadies see you.</p>
+      <h1>{t.setupTitle}</h1>
+      <p className="car-sub">{t.setupSub}</p>
 
       <div className="car-card">
         <span className="avatar big" style={{ color: colorHex(color) }}>
           <CarIcon />
         </span>
-        <div className="car-name">{name.trim() || defaultName}</div>
+        <div className="car-name">{name.trim() || fallbackName}</div>
       </div>
 
       <label className="field">
-        <span>Display name</span>
-        <input value={name} maxLength={32} placeholder={defaultName} onChange={(e) => setName(e.target.value)} />
+        <span>{t.displayName}</span>
+        <input value={name} maxLength={32} placeholder={fallbackName} onChange={(e) => setName(e.target.value)} />
       </label>
 
       <fieldset className="field">
-        <legend>Color</legend>
+        <legend>{t.color}</legend>
         <div className="swatches">
           {CAR_COLORS.map((c) => (
             <button
               key={c.name}
               className={`swatch ${c.name === color ? 'selected' : ''}`}
               style={{ background: c.hex }}
-              aria-label={c.name}
+              aria-label={colorLabel(picked, c.name)}
               aria-pressed={c.name === color}
               onClick={() => setColor(c.name)}
             />
@@ -51,7 +63,7 @@ export function Setup() {
       </fieldset>
 
       <fieldset className="field">
-        <legend>Car</legend>
+        <legend>{t.car}</legend>
         <div className="chips">
           {CAR_MAKES.map((m) => (
             <button key={m} className={`chip ${m === make ? 'selected' : ''}`} aria-pressed={m === make} onClick={() => setMake(m)}>
@@ -61,8 +73,20 @@ export function Setup() {
         </div>
       </fieldset>
 
+      <fieldset className="field">
+        <legend>{t.language}</legend>
+        <div className="chips">
+          {LANGS.map((l) => (
+            // Each language's name in itself, so anyone can find theirs.
+            <button key={l} lang={l} className={`chip ${l === picked ? 'selected' : ''}`} aria-pressed={l === picked} onClick={() => setPicked(l)}>
+              {LANG_NAMES[l]}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
       <button className="primary big" onClick={save}>
-        Save
+        {t.save}
       </button>
     </main>
   );

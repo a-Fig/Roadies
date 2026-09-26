@@ -1,5 +1,6 @@
 import type { CarProfile } from './cars';
 import type { LatLng } from './geo';
+import type { Lang } from './lang';
 import type { Command, VoiceState } from './voice';
 
 export type Mode = 'demo' | 'live';
@@ -45,6 +46,8 @@ export type ClientMessage =
       spot?: string;
       /** Live: current GPS position. */
       pos?: LatLng;
+      /** Language for spoken commands; the server falls back to 'en'. */
+      lang?: Lang;
     }
   | { t: 'pos'; pos: LatLng }
   | { t: 'cmd'; cmd: Command };

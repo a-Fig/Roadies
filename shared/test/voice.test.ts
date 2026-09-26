@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { isLang, LANGS, type Lang } from '../src/lang';
 import {
   applyCommand,
+  COMMANDS,
+  commandPhrases,
   INITIAL_VOICE_STATE,
   isHearing,
   isTransmitting,
   joinState,
+  MISHEARINGS,
+  normalizeUtterance,
   parseAlternatives,
-  COMMAND_PHRASES,
   parseCommand,
+  PHRASES,
+  sayPhrase,
   type Command,
   type VoiceState,
 } from '../src/voice';
@@ -113,7 +119,110 @@ describe('parseAlternatives (n-best list)', () => {
     // A real "deafen" from the 2026-09-26 voice round.
     expect(parseAlternatives(['Duffin', 'Stephan', 'Stefan', 'bethanne', 'bethan'])).toBe('deafen');
     expect(parseCommand('Stefan.')).toBe('deafen');
-    expect(COMMAND_PHRASES).not.toContain('stephan');
-    expect(COMMAND_PHRASES).toContain('deafen');
+    expect(commandPhrases('en')).not.toContain('stephan');
+    expect(commandPhrases('en')).toContain('deafen');
+    // An en-US mishearing says nothing about other recognizers.
+    expect(parseCommand('Stefan.', 'fr')).toBeNull();
+  });
+});
+
+/** Every accepted phrase of a language: its own, its mishearings, and the English ones. */
+function accepted(lang: Lang): [string, Command][] {
+  return [PHRASES.en, PHRASES[lang], MISHEARINGS[lang]].flatMap((table) =>
+    Object.entries(table).flatMap(([cmd, phrases]) => phrases.map((p) => [p, cmd as Command] as [string, Command])),
+  );
+}
+
+describe('languages', () => {
+  it('knows its languages', () => {
+    expect(LANGS).toEqual(['en', 'fr', 'es', 'vi']);
+    expect(isLang('vi')).toBe(true);
+    expect(isLang('de')).toBe(false);
+    expect(isLang(undefined)).toBe(false);
+  });
+
+  it('folds accents, đ and punctuation', () => {
+    expect(normalizeUtterance('Micro coupé.')).toBe('micro coupe');
+    expect(normalizeUtterance('Déconnecte-moi !')).toBe('deconnecte moi');
+    expect(normalizeUtterance('¿Silénciame?')).toBe('silenciame');
+    expect(normalizeUtterance('NGẮT KẾT NỐI')).toBe('ngat ket noi');
+    expect(normalizeUtterance('Đi đâu')).toBe('di dau');
+    // Decomposed input (a combining accent) folds the same way.
+    expect(normalizeUtterance('coupé')).toBe('coupe');
+  });
+
+  it.each(LANGS)('every %s phrase parses, as written, shouted and without accents', (lang) => {
+    for (const [phrase, cmd] of accepted(lang)) {
+      expect(parseCommand(phrase, lang), phrase).toBe(cmd);
+      expect(parseCommand(`${phrase.toUpperCase()}!`, lang), phrase).toBe(cmd);
+      expect(parseCommand(normalizeUtterance(phrase), lang), phrase).toBe(cmd);
+    }
+  });
+
+  it.each(LANGS)('English commands work under %s', (lang) => {
+    for (const cmd of COMMANDS) expect(parseCommand(cmd, lang)).toBe(cmd);
+    expect(parseAlternatives(['a meal', 'unmute'], lang)).toBe('unmute');
+  });
+
+  it.each(LANGS)('no %s phrase means two different commands', (lang) => {
+    const seen = new Map<string, Command>();
+    for (const [phrase, cmd] of accepted(lang)) {
+      const key = normalizeUtterance(phrase);
+      expect(seen.get(key) ?? cmd, `"${phrase}"`).toBe(cmd);
+      seen.set(key, cmd);
+    }
+  });
+
+  it('only accepts a language’s phrases for drivers who chose it', () => {
+    expect(parseCommand('coupe le micro', 'fr')).toBe('mute');
+    expect(parseCommand('coupe le micro')).toBeNull();
+    expect(parseCommand('apaga el micro', 'fr')).toBeNull();
+    expect(parseCommand('tắt mic', 'es')).toBeNull();
+  });
+
+  it.each([
+    ['fr', 'je vais couper le micro'],
+    ['fr', 'ne coupe pas le micro'],
+    ['fr', 'coupe pas le micro'],
+    ['fr', 'tu peux remettre le son ?'],
+    ['fr', 'on est coincés dans le bouchon'],
+    ['es', 'no apagues el micro'],
+    ['es', 'voy a apagar el micro'],
+    ['es', '¿me escuchas?'],
+    ['es', 'hay mucho tráfico hoy'],
+    ['vi', 'đừng tắt mic'],
+    ['vi', 'tôi sẽ tắt mic'],
+    ['vi', 'bạn nghe rõ không'],
+    ['vi', 'kẹt xe quá'],
+  ] as [Lang, string][])('%s ignores conversation: %j', (lang, text) => {
+    expect(parseCommand(text, lang)).toBeNull();
+    expect(parseAlternatives([text], lang)).toBeNull();
+  });
+
+  it('looks at lower guesses only for short best guesses', () => {
+    // No longer than the command phrase: a mishearing, rescued.
+    expect(parseAlternatives(['coupe le micron', 'coupe le micro'], 'fr')).toBe('mute');
+    expect(parseAlternatives(['tắc mic', 'tắt mic'], 'vi')).toBe('mute');
+    // Longer than the command phrase: conversation, never rescued.
+    expect(parseAlternatives(['je coupe le micro', 'coupe le micro'], 'fr')).toBeNull();
+    expect(parseAlternatives(['no apagues el micro', 'apaga el micro'], 'es')).toBeNull();
+    expect(parseAlternatives(['đừng tắt mic', 'tắt mic'], 'vi')).toBeNull();
+    expect(parseAlternatives(["don't mute me", 'mute'], 'fr')).toBeNull();
+  });
+
+  it('hints the language’s phrases with accents, plus English, without mishearings', () => {
+    const fr = commandPhrases('fr');
+    expect(fr).toContain('micro coupé');
+    expect(fr).toContain('mute');
+    expect(new Set(fr).size).toBe(fr.length);
+    expect(commandPhrases('en')).toEqual(Object.values(PHRASES.en).flat());
+    for (const lang of LANGS) {
+      for (const heard of Object.values(MISHEARINGS[lang]).flat()) expect(commandPhrases(lang)).not.toContain(heard);
+    }
+  });
+
+  it('tells people to say each language’s first phrase', () => {
+    expect(sayPhrase('en', 'unmute')).toBe('unmute');
+    for (const lang of LANGS) for (const cmd of COMMANDS) expect(sayPhrase(lang, cmd)).toBe(PHRASES[lang][cmd][0]);
   });
 });
