@@ -1,63 +1,79 @@
 import type { Command } from '@roadies/shared';
 
-// Original Discord-like earcons, synthesized so there are no audio files.
+// Discord's own voice sounds (web/public/audio, from Discord's web client),
+// played through Web Audio so they start instantly over the call.
+
+type Chime = Command | 'join' | 'leave' | 'moved';
+
+const FILES: Record<Chime, string> = {
+  mute: 'mute',
+  unmute: 'unmute',
+  deafen: 'deafen',
+  undeafen: 'undeafen',
+  disconnect: 'disconnect',
+  // Discord plays the join sound when you join a channel yourself.
+  connect: 'user_join',
+  join: 'user_join',
+  leave: 'user_leave',
+  moved: 'user_moved',
+};
+
+const VOLUME = 0.6;
+/** A sound that isn't ready this long after it was asked for is dropped, so late sounds never play out of order. */
+const MAX_DELAY_MS = 400;
 
 let ctx: AudioContext | null = null;
+const buffers = new Map<string, Promise<AudioBuffer | null>>();
 
-/** Call from a tap handler: browsers only allow audio after a user gesture. */
+/**
+ * Call from tap handlers: browsers only allow audio after a user gesture, and
+ * iOS suspends or interrupts the context after a lock screen or phone call.
+ * Also preloads the sounds.
+ */
 export function unlockAudio(): void {
   ctx ??= new AudioContext();
-  if (ctx.state === 'suspended') void ctx.resume();
+  if (ctx.state !== 'running') void ctx.resume().catch(() => {});
+  for (const file of new Set(Object.values(FILES))) void load(ctx, file);
 }
 
-type Note = { freq: number; at: number; dur: number; type?: OscillatorType };
-
-function play(notes: Note[], volume = 0.2): void {
-  if (!ctx) return;
-  const t0 = ctx.currentTime + 0.01;
-  for (const n of notes) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = n.type ?? 'sine';
-    osc.frequency.setValueAtTime(n.freq, t0 + n.at);
-    gain.gain.setValueAtTime(0.0001, t0 + n.at);
-    gain.gain.exponentialRampToValueAtTime(volume, t0 + n.at + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + n.at + n.dur);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t0 + n.at);
-    osc.stop(t0 + n.at + n.dur + 0.02);
+function load(c: AudioContext, file: string): Promise<AudioBuffer | null> {
+  let buffer = buffers.get(file);
+  if (!buffer) {
+    buffer = fetch(`/audio/${file}.mp3`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`${file}.mp3: HTTP ${res.status}`);
+        return res.arrayBuffer();
+      })
+      .then((bytes) => c.decodeAudioData(bytes))
+      .catch((err: unknown) => {
+        console.warn('Sound failed to load', err);
+        buffers.delete(file); // try again next time
+        return null;
+      });
+    buffers.set(file, buffer);
   }
+  return buffer;
 }
 
-function glide(from: number, to: number, dur: number, volume = 0.18): void {
-  if (!ctx) return;
-  const t0 = ctx.currentTime + 0.01;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(from, t0);
-  osc.frequency.exponentialRampToValueAtTime(to, t0 + dur);
-  gain.gain.setValueAtTime(0.0001, t0);
-  gain.gain.exponentialRampToValueAtTime(volume, t0 + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(t0);
-  osc.stop(t0 + dur + 0.02);
+function play(file: string): void {
+  const c = ctx;
+  if (!c) return;
+  // Works without a tap on Android; iOS needs unlockAudio() from a tap.
+  if (c.state !== 'running') void c.resume().catch(() => {});
+  const askedAt = performance.now();
+  void load(c, file).then((buffer) => {
+    if (!buffer || performance.now() - askedAt > MAX_DELAY_MS) return;
+    const source = c.createBufferSource();
+    source.buffer = buffer;
+    const gain = c.createGain();
+    gain.gain.value = VOLUME;
+    source.connect(gain).connect(c.destination);
+    source.start();
+  });
 }
 
-const n = (freq: number, at: number, dur: number, type?: OscillatorType): Note => ({ freq, at, dur, type });
+export const chimes = Object.fromEntries(
+  Object.entries(FILES).map(([name, file]) => [name, () => play(file)]),
+) as Record<Chime, () => void>;
 
-export const chimes: Record<Command | 'join' | 'leave' | 'moved', () => void> = {
-  mute: () => play([n(659, 0, 0.09), n(440, 0.07, 0.15)]),
-  unmute: () => play([n(440, 0, 0.09), n(659, 0.07, 0.15)]),
-  deafen: () => play([n(587, 0, 0.08), n(440, 0.06, 0.08), n(294, 0.12, 0.2)]),
-  undeafen: () => play([n(294, 0, 0.08), n(440, 0.06, 0.08), n(587, 0.12, 0.2)]),
-  disconnect: () => glide(520, 170, 0.38),
-  connect: () => {
-    glide(260, 620, 0.22);
-    play([n(784, 0.2, 0.22)]);
-  },
-  moved: () => play([n(523, 0, 0.1, 'triangle'), n(659, 0.09, 0.1, 'triangle'), n(784, 0.18, 0.22, 'triangle')], 0.15),
-  join: () => play([n(1047, 0, 0.08, 'triangle'), n(1319, 0.08, 0.16, 'triangle')], 0.12),
-  leave: () => play([n(1319, 0, 0.08, 'triangle'), n(988, 0.08, 0.16, 'triangle')], 0.12),
-};
+export const CHIME_NAMES = Object.keys(FILES) as Chime[];
