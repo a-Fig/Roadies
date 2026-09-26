@@ -94,7 +94,9 @@ if (existsSync(config.webDist)) {
   // Single-page app: /, /demo, /presenter all load the same page.
   app.use((req, res, next) => {
     if (req.method !== 'GET' || req.path.startsWith('/dev/') || path.extname(req.path)) return next();
-    res.sendFile(path.join(config.webDist, 'index.html'));
+    // `root`, so a checkout under a dot directory (e.g. .claude/worktrees/) still serves it:
+    // send() refuses any absolute path with a dot segment.
+    res.sendFile('index.html', { root: config.webDist });
   });
 }
 

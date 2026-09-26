@@ -154,6 +154,25 @@ describe('World', () => {
     expect(t.langChanges).toHaveLength(1);
   });
 
+  it('a returning phone brings its new name (e.g. the default name in a new language) to the room', async () => {
+    const t = setup();
+    const rouge = { name: 'Mustang rouge', make: 'Mustang', color: 'Red' };
+    t.join('car-aaaaa', { spot: 'sfo', lang: 'fr', profile: rouge });
+    t.join('car-bbbbb', { spot: 'sfo' });
+    await t.flush();
+
+    t.join('car-aaaaa', { spot: 'sfo', lang: 'es', profile: { ...rouge, name: 'Mustang rojo' } });
+    await t.flush();
+    expect(t.last('car-aaaaa', 'welcome')!.profile.name).toBe('Mustang rojo');
+    const names = t.last('car-bbbbb', 'roster')!.room.members.map((m) => m.name);
+    expect(names).toContain('Mustang rojo');
+    expect(names).not.toContain('Mustang rouge');
+
+    // A blank name keeps the one the car has.
+    t.join('car-aaaaa', { spot: 'sfo', lang: 'es', profile: { ...rouge, name: '  ' } });
+    expect(t.last('car-aaaaa', 'welcome')!.profile.name).toBe('Mustang rojo');
+  });
+
   it('disconnect ghosts you out of the roster; connect brings you back', async () => {
     const t = setup();
     t.join('car-aaaaa', { spot: 'sfo' });

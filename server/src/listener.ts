@@ -112,8 +112,11 @@ export class ListenerManager {
 
   private async consume(joined: Joined, identity: string, trackId: string, track: RemoteTrack): Promise<void> {
     joined.sessions.open(identity, trackId);
-    const stream = new AudioStream(track, { sampleRate: this.o.recognizer.sampleRate, numChannels: 1 });
     try {
+      // Inside the try: a track that is already gone makes rtc-node throw right here
+      // ("handle is not a livekit_ffi::server::room::FfiTrack"), and that rejection,
+      // unhandled, used to take the whole server down.
+      const stream = new AudioStream(track, { sampleRate: this.o.recognizer.sampleRate, numChannels: 1 });
       for await (const frame of stream) {
         if (!joined.sessions.write(identity, trackId, frame.data)) break;
       }

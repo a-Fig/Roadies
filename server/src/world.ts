@@ -138,9 +138,17 @@ export class World {
         existing.lang = lang;
         this.opts.onLangChanged?.(existing.id, lang);
       }
+      // Settings may have changed the name, or a language switch the default
+      // name ("Mustang rouge" -> "Mustang rojo"). A blank name keeps the old one.
+      const profile = sanitizeProfile(msg.profile, this.rng, existing.profile.name);
+      const renamed = (['name', 'make', 'color'] as const).some((k) => profile[k] !== existing.profile[k]);
+      if (renamed) existing.profile = profile;
       send({ t: 'welcome', id: existing.id, profile: existing.profile, state: existing.state, mode: existing.mode });
       const room = this.matchmaker.roomOf(existing.id);
-      if (room) void this.sendAssigned(existing, room);
+      if (room) {
+        void this.sendAssigned(existing, room);
+        if (renamed) this.broadcastRoster(room);
+      }
       return;
     }
 
@@ -407,7 +415,7 @@ export class World {
   }
 }
 
-function sanitizeProfile(p: CarProfile, rng: () => number): CarProfile {
+function sanitizeProfile(p: CarProfile, rng: () => number, keepName?: string): CarProfile {
   // Allow-list: letters (any script), digits, spaces, simple punctuation.
   // Markup and emoji both fall outside this set, so both are stripped.
   // NFC first, so accents typed as combining marks ("e" + U+0301) survive.
@@ -421,6 +429,6 @@ function sanitizeProfile(p: CarProfile, rng: () => number): CarProfile {
       : '';
   const make = clean(p?.make, 24) || 'Car';
   const color = clean(p?.color, 16) || 'Silver';
-  const name = clean(p?.name, 32) || randomCar(rng).name;
+  const name = clean(p?.name, 32) || keepName || randomCar(rng).name;
   return { name, make, color };
 }
