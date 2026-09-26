@@ -30,6 +30,7 @@ and this doc disagree, fix one of them.
 | Audio feedback | Discord-style **chimes** (original sounds synthesized with Web Audio). |
 | After `disconnect` | Mic keeps listening for `connect` (screen says so). Rejoin old room if it has space, else re-match. |
 | Projector | Live map + Discord-style channel list + hidden presenter controls + QR code. |
+| Home page | Shows a live count, e.g. "12 drivers talking": drivers with an open connection who haven't disconnected; bots excluded. |
 | Identity | Demo: random car (e.g. "Teal Civic"). Normal: setup screen to pick car + name. No accounts. |
 | Normal mode | Light but real: setup screen (saved on device) + real GPS matchmaking. |
 | Look | ~90% Discord clone (dark grays, layout, rounded, channel list) with night-highway accents. |
@@ -132,7 +133,10 @@ audio. Disconnect = muted-to-everyone + deaf + removed from the room roster (a
 **Recognition:** the listener subscribes to every participant's audio and feeds
 it to the `Recognizer`. Production uses Google Speech-to-Text streaming with the
 six words boosted as phrase hints; streams are restarted before Google's
-per-stream time limit. Aliases (e.g. "un mute") are normalized. Dev/tests use a
+per-stream time limit. Aliases (e.g. "un mute") are normalized. Google's top 5
+guesses are checked: a lower guess counts only when the best guess is one or two
+words, so conversation never triggers. A few observed mishearings (e.g.
+"Stephan" for deafen) are parse-only aliases, never sent as phrase hints. Dev/tests use a
 `FakeRecognizer` fed by `POST /dev/say`.
 
 Privacy note for the pitch: audio reaches our server for command detection;

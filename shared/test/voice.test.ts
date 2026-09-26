@@ -6,6 +6,7 @@ import {
   isTransmitting,
   joinState,
   parseAlternatives,
+  COMMAND_PHRASES,
   parseCommand,
   type Command,
   type VoiceState,
@@ -106,5 +107,13 @@ describe('parseAlternatives (n-best list)', () => {
 
   it('handles an empty list', () => {
     expect(parseAlternatives([])).toBeNull();
+  });
+
+  it('accepts known mishearings without boosting them', () => {
+    // A real "deafen" from the 2026-09-26 voice round.
+    expect(parseAlternatives(['Duffin', 'Stephan', 'Stefan', 'bethanne', 'bethan'])).toBe('deafen');
+    expect(parseCommand('Stefan.')).toBe('deafen');
+    expect(COMMAND_PHRASES).not.toContain('stephan');
+    expect(COMMAND_PHRASES).toContain('deafen');
   });
 });

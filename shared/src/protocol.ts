@@ -25,6 +25,14 @@ export interface LiveKitAccess {
   listenerIdentity: string;
 }
 
+/** GET /api/stats: public counts for the home page. Counts only, never who or where. */
+export interface PublicStats {
+  /** People online and connected to a voice room (bots and disconnected drivers excluded). */
+  talking: number;
+}
+
+export const STATS_PATH = '/api/stats';
+
 // ---- phone -> server ----
 
 export type ClientMessage =
