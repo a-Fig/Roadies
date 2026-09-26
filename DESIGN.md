@@ -1,0 +1,211 @@
+# TrafficLive — Design
+
+Discord-style proximity **voice** chat for drivers stuck in the same jam.
+Built as a **hackathon demo** (48-hour build) where judges scan a QR code and
+become cars stuck on **US-101 northbound, South Bay → SF, 8:15 AM**.
+
+This document records every decision made during the kickoff interview. If code
+and this doc disagree, fix one of them.
+
+---
+
+## 1. Decisions at a glance
+
+| Area | Decision |
+| --- | --- |
+| Goal | Hackathon demo, built in 48 hours. Robustness, scale, moderation and legal come later. |
+| Demo format | Audience scans a QR code, opens a mobile **web app** (no install), and becomes a simulated car. |
+| Communication | **Live voice only**, heavily modeled on Discord voice channels. No text chat. |
+| Controls | Bare spoken commands: `mute`, `unmute`, `deafen`, `undeafen`, `disconnect`, `connect`. No wake word. Buttons mirror them. |
+| Rooms | Max **8** people. Filled by proximity; reaches far away only when needed. |
+| Matchmaking | Nearby first (≤ 5 km to nearest member), else new room; alone ≥ 15 s → merged into nearest open room at any distance. Sticky. |
+| Demo locations | Server assigns simulated spots on real 101 NB choke points; cars inch forward. Normal link uses real GPS. |
+| Voice transport | **LiveKit** (Cloud in prod, `livekit-server --dev` locally). |
+| Command recognition | **Server-side**: hidden listener joins each room, Google Speech-to-Text on each person's audio. |
+| Hosting | Node + TypeScript server on **Google Cloud Run** (1 always-on instance, CPU always allocated). Laptop + tunnel as backup. |
+| Join state | Join **live** (unmuted), Discord default. |
+| Phone UI | **Glanceable driving mode**: one huge status line, giant buttons, no member list. |
+| Audio feedback | Discord-style **chimes** (original sounds synthesized with Web Audio). |
+| After `disconnect` | Mic keeps listening for `connect` (screen says so). Rejoin old room if it has space, else re-match. |
+| Projector | Live map + Discord-style channel list + hidden presenter controls + QR code. |
+| Identity | Demo: random car (e.g. "Teal Civic"). Normal: setup screen to pick car + name. No accounts. |
+| Normal mode | Light but real: setup screen (saved on device) + real GPS matchmaking. |
+| Look | ~90% Discord clone (dark grays, layout, rounded, channel list) with night-highway accents. |
+| Scope policy | Build everything; cut only if we run out of time. |
+| Git | Draft PR from `claude/project-kickoff-619smi` opened immediately. |
+
+---
+
+## 2. Architecture
+
+```
+ phones (web app)                    projector (web app /presenter)
+   │  livekit-client (voice)            │ ws (snapshots)
+   │  ws (control: hello, commands)     │
+   ▼                                    ▼
+ ┌──────────────────────── Node server (Cloud Run, 1 instance) ────────────────────────┐
+ │ Express: static web app, /api/*, /dev/* (dev only)                                   │
+ │ WebSocket hub: client sessions + presenter feed                                      │
+ │ Matchmaker (pure module): place / merge / capacity / naming                          │
+ │ Voice state machine (pure module): Discord mute/deafen semantics                     │
+ │ Demo simulator: assigns spots, inches cars forward, silent bot cars                  │
+ │ Listener: @livekit/rtc-node joins each room as hidden participant                    │
+ │   └─ Recognizer (interface) → GoogleSpeechRecognizer | FakeRecognizer (dev/tests)    │
+ └────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                          │ server SDK (tokens, room API)
+                                          ▼
+                                   LiveKit (SFU)
+```
+
+- **Server is the authority** for room assignment and voice state. Spoken commands
+  and button presses go through the *same* state machine; the server pushes the
+  resulting state to the phone, which applies it to LiveKit.
+- **State is in memory.** One instance, no database. Profiles live in the phone's
+  `localStorage`.
+- Repo layout (npm workspaces): `shared/` (types, protocol, pure logic),
+  `server/`, `web/`.
+
+### Stack
+- TypeScript everywhere, Node 22.
+- Web: React + Vite, `livekit-client`, Leaflet (dark basemap) for the projector map.
+- Server: Express, `ws`, `livekit-server-sdk` (tokens + room API),
+  `@livekit/rtc-node` (listener), `@google-cloud/speech`.
+- Tests: Vitest (pure logic, server integration), Playwright with fake media +
+  local LiveKit for end-to-end.
+
+---
+
+## 3. Matchmaking
+
+Pure, unit-tested module in `shared/`.
+
+- **Distance** = haversine distance from the newcomer to the **nearest active
+  member** of a room (not the centroid), so you join whoever is actually closest.
+- **Active** = connected (not ghosted by `disconnect`). Only active members count
+  toward capacity and distance.
+- **Place(car)**:
+  1. Candidate rooms = rooms with `< 8` active members.
+  2. If any candidate has a member within **5 km**, join the nearest one.
+  3. Otherwise create a new room at the car's location.
+- **Merge tick** (every second): any room with exactly **1** active member for
+  **≥ 15 s** has that member moved into the nearest other open room at **any**
+  distance (if one exists). Empty rooms are deleted.
+- **Sticky**: no re-matching as you drive. You leave a room only by `disconnect`
+  (then `connect` → old room if it still has space, else Place again), by closing
+  the app, or by the lone-merge rule.
+- **Room names**: nearest landmark on the corridor + ordinal, e.g.
+  `Hospital Curve #2`. Outside the Bay Area landmark list: `Jam #n`.
+
+## 4. Voice commands and state
+
+Commands (whole utterance only — the transcript, normalized, must be exactly one
+command; "don't mute me" does nothing):
+
+`mute` · `unmute` · `deafen` · `undeafen` · `disconnect` · `connect`
+
+State follows Discord semantics:
+
+| Command | Effect |
+| --- | --- |
+| `mute` | selfMute = true |
+| `unmute` | selfMute = false; if deafened, also undeafen (Discord behavior) |
+| `deafen` | selfDeaf = true (mic is also cut while deafened) |
+| `undeafen` | selfDeaf = false (mic returns to selfMute) |
+| `disconnect` | leave the room (ghost), keep listening for `connect` |
+| `connect` | rejoin: old room if space, else Place |
+
+- *Transmitting* = connected ∧ ¬selfMute ∧ ¬selfDeaf.
+- *Hearing* = connected ∧ ¬selfDeaf.
+
+**How mute works with a server listener:** the phone never stops publishing its
+mic track. "Muted" means the phone sets LiveKit **track subscription
+permissions** so only the hidden listener may subscribe. That is what lets the
+server still hear `unmute` / `connect`. Deafen = unsubscribe from all remote
+audio. Disconnect = muted-to-everyone + deaf + removed from the room roster (a
+"ghost" that still streams to the listener).
+
+**Recognition:** the listener subscribes to every participant's audio and feeds
+it to the `Recognizer`. Production uses Google Speech-to-Text streaming with the
+six words boosted as phrase hints; streams are restarted before Google's
+per-stream time limit. Aliases (e.g. "un mute") are normalized. Dev/tests use a
+`FakeRecognizer` fed by `POST /dev/say`.
+
+Privacy note for the pitch: audio reaches our server for command detection;
+nothing is stored.
+
+## 5. Demo mode
+
+- QR on the projector → `https://<host>/demo`. One tap ("Join the jam") is
+  required so the browser allows mic + audio playback.
+- Each joiner gets a random car identity and a **server-assigned spot**. The
+  assignment is scripted so every rule shows up early on the projector:
+  - the first wave fills **Hospital Curve** past 8 → a second room opens;
+  - later joiners spread across the other jams;
+  - periodically a **lone commuter** spawns far south (Morgan Hill / Gilroy),
+    sits alone, then gets merged after 15 s.
+- Jams (all 101 NB, spaced > 5 km apart so they form separate rooms):
+  San Jose (101/880), Mountain View (101/85), Palo Alto, Redwood City,
+  San Mateo (101/92), Millbrae / SFO, Hospital Curve (101/280 merge).
+- Cars inch north along the real highway geometry at crawl speed.
+- `?spot=<jam>` forces a spot (for scripted presenter/teammate phones).
+
+## 6. Normal mode
+
+- `/` → setup screen: pick car make, color, display name → saved on device →
+  "Start driving" → real GPS (`watchPosition`) → matchmaking.
+- Same glanceable driving UI and voice commands as demo mode.
+
+## 7. Phone UI (glanceable driving mode)
+
+- One huge status line: room name + driver count, and who is talking now
+  ("🟢 Teal Civic is talking").
+- Whole screen tints **brake-light red** while muted/deafened, **go-green**
+  accents while live, **amber** for warnings.
+- Three giant buttons: Mute, Deafen, Disconnect/Connect (Discord red).
+- Hint strip: `Say: mute · unmute · deafen · undeafen · disconnect`, flashing the
+  last command heard. After disconnect: "Listening for 'connect'".
+- Audio: echo cancellation, noise suppression, auto gain on.
+
+## 8. Audio cues
+
+Original Discord-like chimes synthesized in the browser: mute, unmute, deafen,
+undeafen, disconnect, connect, someone joined, someone left.
+
+## 9. Projector (`/presenter?key=…`)
+
+- Dark Discord-style layout: channel list on the left
+  (`🔊 Hospital Curve #1 — 8/8` with members and live speaking rings), map of the
+  101 corridor on the right, QR code overlay.
+- Cars = dots colored by room, pulsing green while talking; silent gray
+  background traffic makes the jams look real.
+- Hidden controls: reset demo, spawn a lone car (triggers a merge on cue),
+  **mute everyone** (feedback panic button), server-mute a single car.
+
+## 10. Build order
+
+We intend to finish everything; this is dependency order, and the cut order only
+if time runs out (cut from the bottom):
+
+1. Matchmaking + LiveKit voice rooms + demo spots
+2. Server-side voice commands (listener + recognizer)
+3. Glanceable phone UI + chimes
+4. Projector map + channel list
+5. Presenter controls + background traffic
+6. Normal-mode setup + real GPS
+
+## 11. Laptop integration checklist (after moving the session)
+
+- [ ] Create a LiveKit Cloud project → `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`.
+- [ ] GCP project: enable Speech-to-Text + Cloud Run; `gcloud auth`.
+- [ ] Run locally against real LiveKit + Google STT; tune command recognition.
+- [ ] Test on a real iPhone (Safari) and Android (Chrome).
+- [ ] Deploy to Cloud Run (min = max = 1 instance, CPU always allocated).
+- [ ] Rehearse the demo end to end at least once, a day early.
+
+## 12. Known risks
+
+- Same-room echo with live mics (mitigated by browser AEC/NS, rooms of ≤ 8,
+  presenter "mute everyone").
+- Speech recognition accuracy in a noisy room (phrase boosting, aliases, tune on
+  laptop).
+- Venue Wi-Fi (LiveKit Cloud handles NAT/TURN; have a phone hotspot as backup).
