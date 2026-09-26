@@ -27,6 +27,7 @@ const world = new World({
   listenerIdentity: LISTENER_IDENTITY,
   onRoomCreated: (roomId) => void listener?.join(roomId),
   onRoomDeleted: (roomId) => void listener?.leave(roomId),
+  onLangChanged: (carId) => listener?.refresh(carId),
 });
 
 if (config.listener) {
@@ -35,12 +36,13 @@ if (config.listener) {
     identity: LISTENER_IDENTITY,
     issueToken,
     recognizer,
+    langOf: (carId) => world.langOf(carId),
     onTranscript: (carId, heard, info) => {
       const cmd = world.transcript(carId, heard);
       if (config.logTranscripts) {
         const how = info ? ` (${info.ms} ms, peak ${info.peakRms}, +${info.latencyMs} ms)` : '';
         const guesses = heard.map((h) => `"${h}"`).join(' | ');
-        console.log(`[stt] ${carId}: ${guesses} -> ${cmd ?? '(not a command)'}${how}`);
+        console.log(`[stt] ${carId} (${world.langOf(carId)}): ${guesses} -> ${cmd ?? '(not a command)'}${how}`);
       }
     },
     onSpeakers: (roomId, identities) => world.setSpeakers(roomId, identities),
@@ -78,6 +80,7 @@ if (config.devEndpoints) {
       snapshot: world.snapshot(),
       listener: listener && { rooms: listener.roomIds, subscriptions: listener.subscriptions() },
       heardSamples: recognizer instanceof FakeRecognizer ? Object.fromEntries(recognizer.samples) : null,
+      heardLangs: recognizer instanceof FakeRecognizer ? Object.fromEntries(recognizer.langs) : null,
     });
   });
 }

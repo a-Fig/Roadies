@@ -1,3 +1,5 @@
+import type { Lang } from '@roadies/shared';
+
 /**
  * 16 kHz mono PCM in, final transcripts out. One session per participant track.
  * Each final is the recognizer's n-best list for one utterance, best guess first.
@@ -19,7 +21,12 @@ export interface UtteranceInfo {
 
 export interface Recognizer {
   readonly sampleRate: number;
-  open(participantId: string, onFinal: (heard: readonly string[], info?: UtteranceInfo) => void): RecognizerSession;
+  /** A session that hears one participant in one language. */
+  open(
+    participantId: string,
+    lang: Lang,
+    onFinal: (heard: readonly string[], info?: UtteranceInfo) => void,
+  ): RecognizerSession;
 }
 
 export const SAMPLE_RATE = 16_000;
