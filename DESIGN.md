@@ -1,6 +1,7 @@
-# TrafficLive — Design
+# Roadies — Design
 
-Discord-style proximity **voice** chat for drivers stuck in the same jam.
+**Roadies** (repo: TrafficLive) is Discord-style proximity **voice** chat for
+drivers stuck in the same jam.
 Built as a **hackathon demo** (48-hour build) where judges scan a QR code and
 become cars stuck on **US-101 northbound, South Bay → SF, 8:15 AM**.
 
@@ -33,6 +34,8 @@ and this doc disagree, fix one of them.
 | Look | ~90% Discord clone (dark grays, layout, rounded, channel list) with night-highway accents. |
 | Scope policy | Build everything; cut only if we run out of time. |
 | Git | Draft PR from `claude/project-kickoff-619smi` opened immediately. |
+| Name | **Roadies**. |
+| Background use | Web app for the hackathon (screen stays on via wake lock). Voice behind Google/Apple Maps needs a native shell: roadmap. |
 
 ---
 
@@ -165,6 +168,8 @@ nothing is stored.
 - Hint strip: `Say: mute · unmute · deafen · undeafen · disconnect`, flashing the
   last command heard. After disconnect: "Listening for 'connect'".
 - Audio: echo cancellation, noise suppression, auto gain on.
+- Screen wake lock while in a room, so a mounted phone doesn't sleep. If the
+  page is hidden anyway, show a "Keep Roadies on screen" notice on return.
 
 ## 8. Audio cues
 
@@ -202,7 +207,21 @@ if time runs out (cut from the bottom):
 - [ ] Deploy to Cloud Run (min = max = 1 instance, CPU always allocated).
 - [ ] Rehearse the demo end to end at least once, a day early.
 
-## 12. Known risks
+## 12. Background use (maps open) — roadmap
+
+Browsers can't reliably keep a voice call running behind another app:
+
+- **iOS Safari** suspends WebRTC and Web Audio as soon as Safari is backgrounded
+  or the screen locks.
+- **Android Chrome** has reports of the mic cutting out seconds to a minute
+  after the tab is backgrounded.
+
+So the hackathon build is a foreground web app (wake lock keeps the screen on).
+The real fix, pitched as the next step, is a thin native shell with background
+call audio (CallKit on iOS, a foreground service on Android) around the same
+backend, rooms and voice commands.
+
+## 13. Known risks
 
 - Same-room echo with live mics (mitigated by browser AEC/NS, rooms of ≤ 8,
   presenter "mute everyone").

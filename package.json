@@ -1,5 +1,5 @@
 {
-  "name": "trafficlive",
+  "name": "roadies",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -8,7 +8,10 @@
     "web"
   ],
   "scripts": {
-    "dev": "concurrently -k -n server,web -c blue,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
+    "dev": "concurrently -k -n livekit,server,web -c yellow,blue,magenta \"npm run livekit\" \"npm run dev -w server\" \"npm run dev -w web\"",
+    "dev:app": "concurrently -k -n server,web -c blue,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
+    "livekit": "bash scripts/livekit-dev.sh",
+    "fake-phones": "tsx server/src/tools/fake-phones.ts",
     "build": "npm run build -w web",
     "start": "npm start -w server",
     "test": "vitest run",

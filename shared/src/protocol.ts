@@ -51,6 +51,8 @@ export type ServerMessage =
   | { t: 'assigned'; room: RoomInfo; livekit: LiveKitAccess }
   | { t: 'roster'; room: RoomInfo }
   | { t: 'state'; state: VoiceState; cmd?: Command; source?: CommandSource }
+  /** The presenter reset the demo: say hello again to be placed afresh. */
+  | { t: 'reset' }
   | { t: 'error'; message: string };
 
 // ---- projector ----

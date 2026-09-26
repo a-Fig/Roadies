@@ -1,0 +1,23 @@
+{
+  "name": "@roadies/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/ws": "^8.18.1"
+  },
+  "dependencies": {
+    "@google-cloud/speech": "^8.1.0",
+    "@livekit/rtc-node": "^1.1.0",
+    "@roadies/shared": "^0.0.0",
+    "express": "^5.2.1",
+    "livekit-server-sdk": "^2.19.1",
+    "tsx": "^4.23.15",
+    "ws": "^8.22.0"
+  }
+}
