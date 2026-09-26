@@ -132,8 +132,14 @@ export class World {
       send({ t: 'welcome', id: existing.id, profile: existing.profile, state: existing.state, mode: existing.mode });
       const room = this.matchmaker.roomOf(existing.id);
       if (room) void this.sendAssigned(existing, room);
-      // A reload while ghosted shouldn't sit blank until the next tick.
-      if (!existing.state.connected) this.sendClosestPreview(existing.id);
+      // A reload or reconnect while ghosted shouldn't sit blank until the next
+      // tick. Clear the dedupe key first: `sendClosestPreview` skips resending
+      // an unchanged preview, but this fresh socket has never actually seen
+      // one, so the old dedupe key (from before the drop) must not suppress it.
+      if (!existing.state.connected) {
+        this.closestSeen.delete(existing.id);
+        this.sendClosestPreview(existing.id);
+      }
       return;
     }
 
@@ -198,18 +204,34 @@ export class World {
       // Only meaningful while disconnected; otherwise fully ignored (no state
       // change, no log — DESIGN.md §3/§4).
       if (before.connected) return;
-      const now = this.now();
-      const events = this.matchmaker.random(carId, now, this.rng);
+      const events = this.matchmaker.random(carId, this.now(), this.rng);
       if (!events) {
         car.send?.({ t: 'notice', code: 'no-open-rooms' });
         return;
       }
-      car.state = applyCommand(before, cmd);
-      car.send?.({ t: 'state', state: car.state, cmd, source });
-      this.opts.onCommand?.(car, cmd, source);
       if (source === 'voice') this.addLog(`🗣️ ${car.profile.name}: “${cmd}”`);
-      this.handle(events);
       this.closestSeen.delete(carId);
+      // `random` always switches rooms: wait for the new `assigned` (§below).
+      this.moveThenNotify(car, applyCommand(before, cmd), cmd, source, events);
+      return;
+    }
+
+    if (cmd === 'connect' && !before.connected) {
+      const events = this.matchmaker.reconnect(carId, this.now());
+      if (source === 'voice') this.addLog(`🗣️ ${car.profile.name}: “${cmd}”`);
+      this.closestSeen.delete(carId);
+      const state = applyCommand(before, cmd);
+      if (events.some((e) => e.type === 'joined')) {
+        // A real room switch: wait for `assigned` (§below).
+        this.moveThenNotify(car, state, cmd, source, events);
+      } else {
+        // Reactivated its own ghost room in place: no LiveKit switch, so
+        // there's no `assigned` to wait for — send state immediately.
+        car.state = state;
+        car.send?.({ t: 'state', state, cmd, source });
+        this.opts.onCommand?.(car, cmd, source);
+        this.handle(events);
+      }
       return;
     }
 
@@ -218,13 +240,9 @@ export class World {
     this.opts.onCommand?.(car, cmd, source);
     if (source === 'voice') this.addLog(`🗣️ ${car.profile.name}: “${cmd}”`);
 
-    const now = this.now();
     if (cmd === 'disconnect' && before.connected) {
-      this.handle(this.matchmaker.disconnect(carId, now));
+      this.handle(this.matchmaker.disconnect(carId, this.now()));
       this.sendClosestPreview(carId);
-    } else if (cmd === 'connect' && !before.connected) {
-      this.handle(this.matchmaker.reconnect(carId, now));
-      this.closestSeen.delete(carId);
     } else {
       const room = this.matchmaker.roomOf(carId);
       if (room) this.broadcastRoster(room);
@@ -300,7 +318,10 @@ export class World {
     };
     this.cars.set(car.id, car);
     this.addLog(`🚗 Lone commuter ${car.profile.name} near ${placeName(pos)}`);
-    this.handle(this.matchmaker.place(car.id, pos, this.now()));
+    // Always its own new room (not `place`'s any-distance joining): the whole
+    // point of this presenter-only path is to show the 15 s alone-then-merge
+    // cue on demand, which requires it to actually start out alone.
+    this.handle(this.matchmaker.placeAlone(car.id, pos, this.now()));
     return car;
   }
 
@@ -369,7 +390,10 @@ export class World {
    */
   private sendClosestPreview(carId: string): void {
     const car = this.cars.get(carId);
-    if (!car) return;
+    // Nothing to dedupe against if we can't actually send it yet (socket
+    // dropped): recording a key here without sending would make a later,
+    // genuine resend on reconnect look like a no-op repeat.
+    if (!car || car.send === null) return;
     const match = this.matchmaker.closestOpen(carId, car.pos);
     const key = match ? `${match.roomId}:${match.memberId}` : null;
     const randomAvailable = this.matchmaker.hasRandomTarget(carId);
@@ -378,15 +402,26 @@ export class World {
     this.closestSeen.set(carId, dedupeKey);
     const other = match ? this.cars.get(match.memberId) : undefined;
     const room = match ? this.matchmaker.getRoom(match.roomId) : undefined;
-    car.send?.({
+    car.send({
       t: 'closest',
       match: other && room ? { name: other.profile.name, color: other.profile.color, roomName: room.name } : null,
       randomAvailable,
     });
   }
 
-  private handle(events: MatchEvent[]): void {
+  /**
+   * Dispatch the side effects of matchmaker events: `assigned` for anyone who
+   * joined a room, roster broadcasts, log lines, and the room-created/deleted
+   * callbacks. All of that runs synchronously, exactly as before; the returned
+   * promise only resolves once every `assigned` this call dispatched has been
+   * sent (`sendAssigned` awaits LiveKit token issuance), so a caller that needs
+   * to send something *after* assigned — see `moveThenNotify` — can await it.
+   * Every other caller ignores the return value and gets the old fire-and-forget
+   * behavior.
+   */
+  private handle(events: MatchEvent[]): Promise<void> {
     const rosterRooms = new Set<string>();
+    const assignments: Promise<void>[] = [];
     for (const e of events) {
       switch (e.type) {
         case 'room-created':
@@ -400,7 +435,7 @@ export class World {
           const car = this.cars.get(e.memberId);
           const room = this.matchmaker.getRoom(e.roomId);
           if (car && room) {
-            void this.sendAssigned(car, room);
+            assignments.push(this.sendAssigned(car, room));
             if (e.reason === 'merge') this.addLog(`🔀 ${car.profile.name} was alone → merged into ${room.name}`);
             else if (e.reason === 'new-room') this.addLog(`🆕 ${car.profile.name} opened ${room.name}`);
             else if (e.reason === 'random') this.addLog(`🎲 ${car.profile.name} jumped to ${room.name}`);
@@ -420,6 +455,22 @@ export class World {
       const room = this.matchmaker.getRoom(roomId);
       if (room) this.broadcastRoster(room);
     }
+    return Promise.all(assignments).then(() => undefined);
+  }
+
+  /**
+   * For `random` and a room-switching `connect`: run `handle` (which
+   * dispatches the new `assigned`) and only send the voice `state` once that
+   * has gone out. Otherwise `state` can reach the phone first and it briefly
+   * opens its mic to, and hears, the room it just left (finding 4).
+   */
+  private moveThenNotify(car: Car, state: VoiceState, cmd: Command, source: CommandSource, events: MatchEvent[]): void {
+    void this.handle(events).then(() => {
+      if (this.cars.get(car.id) !== car) return; // car removed mid-flight
+      car.state = state;
+      car.send?.({ t: 'state', state, cmd, source });
+      this.opts.onCommand?.(car, cmd, source);
+    });
   }
 
   private broadcastRoster(room: MatchRoom): void {
