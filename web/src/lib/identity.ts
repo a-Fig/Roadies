@@ -1,4 +1,5 @@
 import { randomCar, type CarProfile, type Mode } from '@roadies/shared';
+import { localizeName } from './i18n';
 
 // Storage can be unavailable (private mode, blocked site data); fall back to memory.
 const memory = new Map<string, string>();
@@ -37,17 +38,20 @@ export function clientId(mode: Mode): string {
   return id;
 }
 
-/** Demo mode: a random car, kept for this tab. */
+/**
+ * Demo mode: a random car, kept for this tab. Its default name follows the
+ * current language ("Teal Civic", "Civic turquoise"), even after a switch.
+ */
 export function demoCar(): CarProfile {
   const saved = read('session', 'roadies.demoCar');
   if (saved) {
     try {
-      return JSON.parse(saved) as CarProfile;
+      return localizeName(JSON.parse(saved) as CarProfile);
     } catch {
       // fall through
     }
   }
-  const car = randomCar();
+  const car = localizeName(randomCar());
   write('session', 'roadies.demoCar', JSON.stringify(car));
   return car;
 }
@@ -57,7 +61,7 @@ export function savedProfile(): CarProfile | null {
   const saved = read('local', 'roadies.profile');
   if (!saved) return null;
   try {
-    return JSON.parse(saved) as CarProfile;
+    return localizeName(JSON.parse(saved) as CarProfile);
   } catch {
     return null;
   }

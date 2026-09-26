@@ -14,7 +14,8 @@ const SHOTS = 'test-results/screens';
 /** Every browser context a test opens; closed afterwards so old phones don't rejoin later tests. */
 const contexts: BrowserContext[] = [];
 async function newContext(browser: Browser, options: Parameters<Browser['newContext']>[0]) {
-  const context = await browser.newContext(options);
+  // English unless a test says otherwise: the UI follows the browser's language.
+  const context = await browser.newContext({ locale: 'en-US', ...options });
   contexts.push(context);
   return context;
 }
@@ -49,6 +50,7 @@ async function serverState(request: APIRequestContext) {
   return (await res.json()) as {
     listener: { rooms: string[]; subscriptions: Record<string, string[]> } | null;
     heardSamples: Record<string, number> | null;
+    heardLangs: Record<string, string> | null;
   };
 }
 
@@ -164,6 +166,32 @@ test('disconnect and connect by voice', async ({ browser, request }) => {
   await expect(a.locator('.status-title')).toHaveText('SFO #1');
   await expect(b.locator('.status-sub')).toHaveText('2 roadies in this room');
   await expect.poll(() => subscribed(b)).toBe(1);
+});
+
+test('a French phone: French screen, and saying "coupe le micro" mutes it', async ({ browser, request }) => {
+  const context = await newContext(browser, { ...devices['Pixel 7'], permissions: ['microphone'] });
+  await context.addInitScript(() => localStorage.setItem('roadies.lang', 'fr'));
+  const page = await context.newPage();
+  await page.goto(`${BASE}/demo?spot=sfo`);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
+  await expect(page.locator('.fine')).toContainText('coupe le micro');
+  await page.getByRole('button', { name: 'Rejoindre le bouchon' }).click();
+  await expect(page.locator('.voice-status')).toHaveText(/Vocal connecté/);
+  await expect(page.locator('.banner')).toHaveText('MICRO COUPÉ · dis « active le micro »');
+
+  // The listener hears this phone in French.
+  const id = await myId(page);
+  await expect.poll(async () => (await serverState(request)).heardLangs?.[id]).toBe('fr');
+
+  await page.getByRole('button', { name: 'Activer le micro' }).click();
+  await expect(page.locator('.banner')).toHaveCount(0);
+  expect((await say(request, id, 'Coupe le micro.')).cmd).toBe('mute');
+  await expect(page.locator('.banner')).toHaveText('MICRO COUPÉ · dis « active le micro »');
+  await expect(page.getByTestId('hint')).toHaveText('✓ Compris : « coupe le micro »');
+  await page.screenshot({ path: `${SHOTS}/phone-fr-muted.png` });
+  // English still works.
+  expect((await say(request, id, 'unmute')).cmd).toBe('unmute');
+  await expect(page.locator('.banner')).toHaveCount(0);
 });
 
 test('buttons do the same as voice commands', async ({ browser }) => {

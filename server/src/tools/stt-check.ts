@@ -3,14 +3,17 @@
  * real GoogleSpeechRecognizer, speech gate included, and prints what Google
  * heard and which command it parses to. Uses the same env as the server.
  *
- *   npx tsx --env-file=.env server/src/tools/stt-check.ts clips/*.wav
+ *   npx tsx --env-file=.env server/src/tools/stt-check.ts [--lang fr] clips/*.wav
  *
  * Name files "<speaker>-<what was said>.wav": "zira-unmute.wav" is expected to
  * parse as "unmute", "zira-dont-mute-me.wav" as nothing. Trailing digits are
- * ignored ("tyler-deafen-03.wav"). Audio is sent in real time, as in production.
+ * ignored ("tyler-deafen-03.wav"). Accents may be left out of file names
+ * ("remi-coupe-le-micro.wav"): parsing folds them anyway. `--lang` picks the
+ * recognizer language and the phrases to parse with (default en). Audio is
+ * sent in real time, as in production.
  */
 import path from 'node:path';
-import { parseAlternatives, parseCommand, type Command } from '@roadies/shared';
+import { isLang, LANGS, parseAlternatives, parseCommand, type Command, type Lang } from '@roadies/shared';
 import { GoogleSpeechRecognizer } from '../recognizer/google';
 import { SAMPLE_RATE } from '../recognizer/types';
 import { readWav } from '../recognizer/wav';
@@ -34,13 +37,13 @@ function withRoom(clip: Int16Array): Int16Array {
 /** What the speaker said, from the file name, run through the real parser. */
 function expected(file: string): Command | null {
   const [, ...said] = path.basename(file).replace(/\.wav$/i, '').split(/[-_ ]/);
-  return parseCommand(said.join(' '));
+  return parseCommand(said.join(' '), lang);
 }
 
 async function check(recognizer: GoogleSpeechRecognizer, file: string) {
   const heard: (readonly string[])[] = [];
   let latencyMs = -1;
-  const session = recognizer.open(path.basename(file), (alternatives, info) => {
+  const session = recognizer.open(path.basename(file), lang, (alternatives, info) => {
     heard.push(alternatives);
     latencyMs = info?.latencyMs ?? -1;
   });
@@ -55,20 +58,30 @@ async function check(recognizer: GoogleSpeechRecognizer, file: string) {
   // Finals arrive shortly after the stream ends.
   for (let waited = 0; waited < 5000 && heard.length === 0; waited += 100) await new Promise((r) => setTimeout(r, 100));
   await new Promise((r) => setTimeout(r, 300));
-  const cmd = heard.length === 1 ? parseAlternatives(heard[0]!) : null;
+  const cmd = heard.length === 1 ? parseAlternatives(heard[0]!, lang) : null;
   const want = expected(file);
   // Hearing nothing is a failure even for a clip that should not parse.
   return { file: path.basename(file), heard, cmd, want, ok: heard.length > 0 && cmd === want, latencyMs };
 }
 
 const files = process.argv.slice(2);
+let lang: Lang = 'en';
+const langFlag = files.indexOf('--lang');
+if (langFlag >= 0) {
+  const value = files.splice(langFlag, 2)[1];
+  if (!isLang(value)) {
+    console.error(`--lang must be one of: ${LANGS.join(', ')}`);
+    process.exit(2);
+  }
+  lang = value;
+}
 if (files.length === 0) {
-  console.error('usage: stt-check.ts <file.wav>...');
+  console.error('usage: stt-check.ts [--lang en|fr|es|vi] <file.wav>...');
   process.exit(2);
 }
 const model = process.env.GOOGLE_STT_MODEL ?? 'command_and_search';
 const recognizer = new GoogleSpeechRecognizer(model, { verbose: true });
-console.log(`model: ${model}`);
+console.log(`model: ${model}, language: ${lang}`);
 const settled = await Promise.allSettled(files.map((f) => check(recognizer, f)));
 const results = settled.flatMap((s, i) => {
   if (s.status === 'fulfilled') return [s.value];

@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import speech from '@google-cloud/speech';
-import { COMMAND_PHRASES } from '@roadies/shared';
+import { commandPhrases, STT_LANGUAGE, type Lang } from '@roadies/shared';
 import { computeRms, SpeechGate } from './gate';
 import { SAMPLE_RATE, type Recognizer, type RecognizerSession, type UtteranceInfo } from './types';
 import { writeWav } from './wav';
@@ -25,36 +25,56 @@ export interface GoogleRecognizerOptions {
  *
  * Asks for several alternatives: a short command is often misheard as its
  * best guess ("a meal") while the right word is further down the list.
+ *
+ * Each session recognizes one language, with that language's command phrases
+ * (plus the English ones) as hints.
  */
 export class GoogleSpeechRecognizer implements Recognizer {
   readonly sampleRate = SAMPLE_RATE;
   private readonly client = new speech.SpeechClient();
-  private readonly request: StreamingRequest;
+  private readonly requests = new Map<Lang, StreamingRequest>();
   private readonly log: (msg: string) => void;
   private readonly verbose: boolean;
   private readonly saveDir: string | null;
 
-  constructor(model: string, opts: GoogleRecognizerOptions = {}) {
+  constructor(
+    private readonly model: string,
+    opts: GoogleRecognizerOptions = {},
+  ) {
     this.log = opts.log ?? console.warn;
     this.verbose = opts.verbose ?? false;
     this.saveDir = opts.saveDir ?? null;
     if (this.saveDir) mkdirSync(this.saveDir, { recursive: true });
-    this.request = {
-      config: {
-        encoding: 'LINEAR16',
-        sampleRateHertz: SAMPLE_RATE,
-        languageCode: 'en-US',
-        model,
-        maxAlternatives: 5,
-        profanityFilter: false,
-        speechContexts: [{ phrases: [...COMMAND_PHRASES], boost: 20 }],
-      },
-      interimResults: false,
-      singleUtterance: false,
-    };
   }
 
-  open(participantId: string, onFinal: (heard: readonly string[], info?: UtteranceInfo) => void): RecognizerSession {
+  /** The streaming request config for a language, built once. */
+  private request(lang: Lang): StreamingRequest {
+    let request = this.requests.get(lang);
+    if (!request) {
+      request = {
+        config: {
+          encoding: 'LINEAR16',
+          sampleRateHertz: SAMPLE_RATE,
+          languageCode: STT_LANGUAGE[lang],
+          model: this.model,
+          maxAlternatives: 5,
+          profanityFilter: false,
+          speechContexts: [{ phrases: commandPhrases(lang), boost: 20 }],
+        },
+        interimResults: false,
+        singleUtterance: false,
+      };
+      this.requests.set(lang, request);
+    }
+    return request;
+  }
+
+  open(
+    participantId: string,
+    lang: Lang,
+    onFinal: (heard: readonly string[], info?: UtteranceInfo) => void,
+  ): RecognizerSession {
+    const request = this.request(lang);
     let stream: ReturnType<typeof this.client.streamingRecognize> | null = null;
     // The utterance being streamed; each stream's handlers keep their own.
     let current = newUtterance();
@@ -69,7 +89,7 @@ export class GoogleSpeechRecognizer implements Recognizer {
       { sampleRate: SAMPLE_RATE },
       {
         start: (preroll) => {
-          const s = this.client.streamingRecognize(this.request);
+          const s = this.client.streamingRecognize(request);
           const u = (current = newUtterance());
           s.on('data', (res: StreamingResponse) => {
             for (const r of res.results ?? []) {
@@ -135,6 +155,9 @@ const newUtterance = (): Utterance => ({ startedAt: Date.now(), peakRms: 0, ms: 
 
 const slug = (s: string) =>
   s
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[đĐ]/g, 'd')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')

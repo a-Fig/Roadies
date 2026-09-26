@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
   applyCommand,
   INITIAL_VOICE_STATE,
+  isLang,
   isTransmitting,
   joinState,
   Matchmaker,
@@ -12,6 +13,7 @@ import {
   type ClientMessage,
   type Command,
   type CommandSource,
+  type Lang,
   type LatLng,
   type MatchEvent,
   type MatchRoom,
@@ -42,6 +44,8 @@ export interface Car {
   id: string;
   profile: CarProfile;
   mode: Mode;
+  /** The language the command listener hears this driver in. */
+  lang: Lang;
   pos: LatLng;
   heading: number;
   state: VoiceState;
@@ -64,6 +68,8 @@ export interface WorldOptions {
   onRoomCreated?: (roomId: string) => void;
   onRoomDeleted?: (roomId: string) => void;
   onCommand?: (car: Car, cmd: Command, source: CommandSource) => void;
+  /** A returning phone said hello in a different language. */
+  onLangChanged?: (carId: string, lang: Lang) => void;
 }
 
 const LOG_SIZE = 8;
@@ -125,13 +131,26 @@ export class World {
 
     const now = this.now();
     const id = carIdFor(msg.clientId);
+    const lang = isLang(msg.lang) ? msg.lang : 'en';
     const existing = this.cars.get(id);
     if (existing) {
       existing.send = send;
       existing.offlineSince = null;
+      if (existing.lang !== lang) {
+        existing.lang = lang;
+        this.opts.onLangChanged?.(existing.id, lang);
+      }
+      // Settings may have changed the name, or a language switch the default
+      // name ("Mustang rouge" -> "Mustang rojo"). A blank name keeps the old one.
+      const profile = sanitizeProfile(msg.profile, this.rng, existing.profile.name);
+      const renamed = (['name', 'make', 'color'] as const).some((k) => profile[k] !== existing.profile[k]);
+      if (renamed) existing.profile = profile;
       send({ t: 'welcome', id: existing.id, profile: existing.profile, state: existing.state, mode: existing.mode });
       const room = this.matchmaker.roomOf(existing.id);
-      if (room) void this.sendAssigned(existing, room);
+      if (room) {
+        void this.sendAssigned(existing, room);
+        if (renamed) this.broadcastRoster(room);
+      }
       // A reload or reconnect while ghosted shouldn't sit blank until the next
       // tick. Clear the dedupe key first: `sendClosestPreview` skips resending
       // an unchanged preview, but this fresh socket has never actually seen
@@ -166,6 +185,7 @@ export class World {
       id,
       profile: sanitizeProfile(msg.profile, this.rng),
       mode: msg.mode,
+      lang,
       pos,
       heading,
       state: joinState(msg.mode),
@@ -188,9 +208,14 @@ export class World {
     this.matchmaker.updatePosition(carId, pos);
   }
 
-  /** A final transcript from the command listener (one string, or an n-best list). */
+  /** The language to hear a car's commands in (English for an unknown car). */
+  langOf(carId: string): Lang {
+    return this.cars.get(carId)?.lang ?? 'en';
+  }
+
+  /** A final transcript from the command listener (one string, or an n-best list), in the car's language. */
   transcript(carId: string, heard: string | readonly string[]): Command | null {
-    const cmd = parseAlternatives(typeof heard === 'string' ? [heard] : heard);
+    const cmd = parseAlternatives(typeof heard === 'string' ? [heard] : heard, this.langOf(carId));
     if (cmd) this.command(carId, cmd, 'voice');
     return cmd;
   }
@@ -307,6 +332,7 @@ export class World {
       id: `bot-${++this.botCount}`,
       profile: randomCar(this.rng),
       mode: 'demo',
+      lang: 'en',
       pos,
       heading,
       state: { ...INITIAL_VOICE_STATE },
@@ -496,13 +522,20 @@ export class World {
   }
 }
 
-function sanitizeProfile(p: CarProfile, rng: () => number): CarProfile {
+function sanitizeProfile(p: CarProfile, rng: () => number, keepName?: string): CarProfile {
   // Allow-list: letters (any script), digits, spaces, simple punctuation.
   // Markup and emoji both fall outside this set, so both are stripped.
+  // NFC first, so accents typed as combining marks ("e" + U+0301) survive.
   const clean = (s: unknown, max: number) =>
-    typeof s === 'string' ? s.replace(/[^\p{L}\p{N} '.\-_!]/gu, '').trim().slice(0, max) : '';
+    typeof s === 'string'
+      ? s
+          .normalize('NFC')
+          .replace(/[^\p{L}\p{N} '.\-_!]/gu, '')
+          .trim()
+          .slice(0, max)
+      : '';
   const make = clean(p?.make, 24) || 'Car';
   const color = clean(p?.color, 16) || 'Silver';
-  const name = clean(p?.name, 32) || randomCar(rng).name;
+  const name = clean(p?.name, 32) || keepName || randomCar(rng).name;
   return { name, make, color };
 }
