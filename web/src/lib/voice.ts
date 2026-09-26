@@ -89,8 +89,9 @@ export class VoiceClient {
       return;
     }
     await this.prepareMic();
-    await room.localParticipant.publishTrack(this.mic!, { source: Track.Source.Microphone });
+    // Permissions first, so a muted mic is never briefly open to the room.
     this.apply(this.state);
+    await room.localParticipant.publishTrack(this.mic!, { source: Track.Source.Microphone });
     this.onAudioBlocked(!room.canPlaybackAudio);
   }
 

@@ -18,7 +18,7 @@ Needs Node 22+.
 
 ```sh
 npm install
-brew install livekit        # macOS; on Linux the script downloads it
+brew install livekit        # macOS; on Linux and Windows (Git Bash) the script downloads it
 npm run dev                 # LiveKit (dev mode) + server :8080 + web :5173
 ```
 

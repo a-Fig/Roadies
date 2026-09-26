@@ -54,7 +54,8 @@ describe('World', () => {
     const t = setup();
     t.join('car-00001');
     await t.flush();
-    expect(t.last('car-00001', 'welcome')?.state).toEqual({ selfMute: false, selfDeaf: false, connected: true });
+    // Demo mode joins muted (DESIGN.md §1).
+    expect(t.last('car-00001', 'welcome')?.state).toEqual({ selfMute: true, selfDeaf: false, connected: true });
     const assigned = t.last('car-00001', 'assigned')!;
     expect(assigned.room.name).toBe('Hospital Curve #1');
     expect(assigned.livekit).toEqual({
@@ -170,6 +171,7 @@ describe('World', () => {
     expect(t.last('car-live1', 'error')).toBeDefined();
     t.join('car-live2', { mode: 'live', pos: { lat: 37.7749, lng: -122.4194 } });
     expect(t.world.getCar('car-live2')?.pos).toEqual({ lat: 37.7749, lng: -122.4194 });
+    expect(t.last('car-live2', 'welcome')?.state.selfMute).toBe(false); // normal mode joins live
   });
 
   it('presenter: spawn a lone bot, mute everyone, reset', async () => {
@@ -178,6 +180,7 @@ describe('World', () => {
     const bot = t.world.spawnLoner();
     expect(bot.bot).toBe(true);
     expect(t.world.snapshot().cars).toHaveLength(2);
+    t.world.command('car-aaaaa', 'unmute', 'voice');
     t.world.muteAll();
     expect(t.world.getCar('car-aaaaa')!.state.selfMute).toBe(true);
     expect(t.last('car-aaaaa', 'state')!.source).toBe('presenter');
@@ -192,6 +195,9 @@ describe('World', () => {
     t.join('car-aaaaa');
     await t.flush();
     const room = t.last('car-aaaaa', 'assigned')!.room.id;
+    t.world.setSpeakers(room, ['car-aaaaa']);
+    expect(t.world.getCar('car-aaaaa')!.speaking).toBe(false); // demo joins muted
+    t.world.command('car-aaaaa', 'unmute', 'voice');
     t.world.setSpeakers(room, ['car-aaaaa']);
     expect(t.world.getCar('car-aaaaa')!.speaking).toBe(true);
     t.world.command('car-aaaaa', 'mute', 'button');

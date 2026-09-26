@@ -13,7 +13,9 @@ import { World } from './world';
 
 const issueToken = createTokenIssuer(config.livekit);
 const recognizer: Recognizer =
-  config.recognizer === 'google' ? new GoogleSpeechRecognizer(config.googleSttModel) : new FakeRecognizer();
+  config.recognizer === 'google'
+    ? new GoogleSpeechRecognizer(config.googleSttModel, console.warn, config.logTranscripts)
+    : new FakeRecognizer();
 
 let listener: ListenerManager | null = null;
 const world = new World({
@@ -30,9 +32,12 @@ if (config.listener) {
     identity: LISTENER_IDENTITY,
     issueToken,
     recognizer,
-    onTranscript: (carId, text) => {
+    onTranscript: (carId, text, info) => {
       const cmd = world.transcript(carId, text);
-      if (config.logTranscripts) console.log(`[stt] ${carId}: "${text}" -> ${cmd ?? '(not a command)'}`);
+      if (config.logTranscripts) {
+        const how = info ? ` (${info.ms} ms, peak ${info.peakRms}, +${info.latencyMs} ms)` : '';
+        console.log(`[stt] ${carId}: "${text}" -> ${cmd ?? '(not a command)'}${how}`);
+      }
     },
     onSpeakers: (roomId, identities) => world.setSpeakers(roomId, identities),
   });

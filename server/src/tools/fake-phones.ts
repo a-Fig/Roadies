@@ -45,7 +45,10 @@ async function fakePhone(index: number): Promise<void> {
   );
   ws.on('message', (raw) => {
     const msg = JSON.parse(String(raw)) as ServerMessage;
-    if (msg.t === 'assigned') {
+    if (msg.t === 'welcome') {
+      // Demo mode joins muted; fake phones "say" unmute right away so they talk.
+      if (msg.state.selfMute) ws.send(JSON.stringify({ t: 'cmd', cmd: 'unmute' }));
+    } else if (msg.t === 'assigned') {
       console.log(`${tag} in ${msg.room.name} (${msg.room.members.length} drivers)`);
       joinLiveKit(msg.livekit.url, msg.livekit.token).catch((e) => console.error(`${tag} LiveKit: ${e.message}`));
     } else if (msg.t === 'state') {

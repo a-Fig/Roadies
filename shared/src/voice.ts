@@ -1,3 +1,5 @@
+import type { Mode } from './protocol';
+
 export const COMMANDS = ['mute', 'unmute', 'deafen', 'undeafen', 'disconnect', 'connect'] as const;
 export type Command = (typeof COMMANDS)[number];
 
@@ -7,8 +9,16 @@ export interface VoiceState {
   connected: boolean;
 }
 
-/** You join live, like Discord. */
+/** Live: connected, unmuted, undeafened. */
 export const INITIAL_VOICE_STATE: VoiceState = { selfMute: false, selfDeaf: false, connected: true };
+
+/**
+ * Where a new driver starts (DESIGN.md §1). Normal mode joins live, like
+ * Discord. Demo mode joins muted: judges' phones share one table, so open mics
+ * would feed back, and saying "unmute" becomes the first thing a judge does.
+ */
+export const joinState = (mode: Mode): VoiceState =>
+  mode === 'demo' ? { ...INITIAL_VOICE_STATE, selfMute: true } : { ...INITIAL_VOICE_STATE };
 
 /** Discord semantics (DESIGN.md §4). */
 export function applyCommand(state: VoiceState, command: Command): VoiceState {
