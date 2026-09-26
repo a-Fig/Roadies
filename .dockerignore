@@ -1,0 +1,8 @@
+node_modules
+**/node_modules
+web/dist
+.livekit
+test-results
+playwright-report
+.env
+.git
