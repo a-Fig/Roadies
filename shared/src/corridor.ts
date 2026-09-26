@@ -13,7 +13,11 @@ export interface Landmark {
 /** Named points along 101 NB (km measured along `corridor`). Used to name rooms. */
 export const LANDMARKS: readonly Landmark[] = [
   { name: 'Gilroy', km: 0.5 },
+  { name: 'San Martin', km: 8.9 },
   { name: 'Morgan Hill', km: 14.3 },
+  { name: 'Coyote Valley', km: 22.0 },
+  { name: 'Blossom Hill', km: 34.5 },
+  { name: 'Tully Road', km: 42.6 },
   { name: 'San Jose 101/880', km: 50.0 },
   { name: 'Mountain View 101/85', km: 65.5 },
   { name: 'Palo Alto', km: 72.5 },

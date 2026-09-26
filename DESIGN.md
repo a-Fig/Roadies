@@ -70,7 +70,8 @@ and this doc disagree, fix one of them.
 
 ### Stack
 - TypeScript everywhere, Node 22.
-- Web: React + Vite, `livekit-client`, Leaflet (dark basemap) for the projector map.
+- Web: React + Vite, `livekit-client`, Leaflet with Esri's dark canvas tiles for the
+  projector map (CARTO's dark tiles now require an API key).
 - Server: Express, `ws`, `livekit-server-sdk` (tokens + room API),
   `@livekit/rtc-node` (listener), `@google-cloud/speech`.
 - Tests: Vitest (pure logic, server integration), Playwright with fake media +
@@ -228,3 +229,5 @@ backend, rooms and voice commands.
 - Speech recognition accuracy in a noisy room (phrase boosting, aliases, tune on
   laptop).
 - Venue Wi-Fi (LiveKit Cloud handles NAT/TURN; have a phone hotspot as backup).
+- Map tiles come from Esri's public tile service; if they fail, the corridor,
+  jams and cars still draw on a dark background.

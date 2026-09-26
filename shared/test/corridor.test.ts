@@ -41,6 +41,12 @@ describe('corridor', () => {
     }
   });
 
+  it('names every lone-commuter spot after a real place', () => {
+    for (let km = LONER_ZONE.fromKm; km <= LONER_ZONE.toKm + 5; km += 0.5) {
+      expect(placeName(corridor.at(km * 1000).pos), `km ${km}`).not.toBe('Jam');
+    }
+  });
+
   it('falls back to a generic name away from landmarks', () => {
     expect(placeName({ lat: 40.7, lng: -74 })).toBe('Jam');
   });

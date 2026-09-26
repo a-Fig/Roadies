@@ -59,6 +59,10 @@ if (config.devEndpoints) {
     }
     res.json({ carId: car.id, cmd: world.transcript(car.id, text) });
   });
+  app.post('/dev/reset', (_req, res) => {
+    world.reset();
+    res.json({ ok: true });
+  });
   app.get('/dev/state', (_req, res) => {
     res.json({
       snapshot: world.snapshot(),
