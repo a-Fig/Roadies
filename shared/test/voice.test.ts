@@ -114,6 +114,16 @@ describe('parseAlternatives (n-best list)', () => {
   it('handles an empty list', () => {
     expect(parseAlternatives([])).toBeNull();
   });
+
+  it('accepts known mishearings without boosting them', () => {
+    // A real "deafen" from the 2026-09-26 voice round.
+    expect(parseAlternatives(['Duffin', 'Stephan', 'Stefan', 'bethanne', 'bethan'])).toBe('deafen');
+    expect(parseCommand('Stefan.')).toBe('deafen');
+    expect(commandPhrases('en')).not.toContain('stephan');
+    expect(commandPhrases('en')).toContain('deafen');
+    // An en-US mishearing says nothing about other recognizers.
+    expect(parseCommand('Stefan.', 'fr')).toBeNull();
+  });
 });
 
 /** Every accepted phrase of a language: its own, its mishearings, and the English ones. */

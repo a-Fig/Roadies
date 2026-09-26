@@ -10,11 +10,16 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   workers: 1,
   fullyParallel: false,
-  reporter: [['list']],
+  // CI runs headless on a shared runner: keep the terse list output but also
+  // write an HTML report (with embedded traces) so a failure is debuggable
+  // from the uploaded artifact instead of only from the log.
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
+  retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: 'http://localhost:8080',
     ...devices['Pixel 7'],
     permissions: ['microphone'],
+    trace: 'retain-on-failure',
     launchOptions: {
       executablePath: chromium,
       args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'],

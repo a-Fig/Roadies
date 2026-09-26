@@ -111,6 +111,13 @@ export class World {
     return [...this.cars.values()];
   }
 
+  /** Public counts for the home page (GET /api/stats). */
+  stats(): { talking: number } {
+    let talking = 0;
+    for (const c of this.cars.values()) if (!c.bot && c.send !== null && c.state.connected) talking++;
+    return { talking };
+  }
+
   /** A phone said hello: resume its car, or create and place a new one. */
   hello(msg: Hello, send: Send): void {
     // A hex-derived id can never equal this, but reject it explicitly anyway

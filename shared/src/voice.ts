@@ -95,10 +95,15 @@ export const PHRASES: Record<Lang, Record<Command, readonly string[]>> = {
  * accepted as the command, but not sent as recognizer hints (boosting them
  * would only make them likelier). Each one means saying just that triggers
  * the command, so add only short, consistent mishearings nobody would say in
- * conversation.
+ * conversation. A language's table applies only to its own recognizer: an
+ * en-US mishearing says nothing about what fr-FR hears.
  */
 export const MISHEARINGS: Record<Lang, Partial<Record<Command, readonly string[]>>> = {
-  en: {},
+  en: {
+    // 2026-09-26: "deafen" came back as "Stephan" / "Stefan" in two real-voice
+    // sessions (best guess once, n-best once) and in the TTS n-best lists.
+    deafen: ['stephan', 'stefan'],
+  },
   fr: {},
   es: {},
   vi: {},
