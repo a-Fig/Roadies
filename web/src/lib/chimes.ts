@@ -19,14 +19,20 @@ const FILES: Record<Chime, string> = {
 };
 
 const VOLUME = 0.6;
+/** A sound that isn't ready this long after it was asked for is dropped, so late sounds never play out of order. */
+const MAX_DELAY_MS = 400;
 
 let ctx: AudioContext | null = null;
 const buffers = new Map<string, Promise<AudioBuffer | null>>();
 
-/** Call from a tap handler: browsers only allow audio after a user gesture. Also preloads the sounds. */
+/**
+ * Call from tap handlers: browsers only allow audio after a user gesture, and
+ * iOS suspends or interrupts the context after a lock screen or phone call.
+ * Also preloads the sounds.
+ */
 export function unlockAudio(): void {
   ctx ??= new AudioContext();
-  if (ctx.state === 'suspended') void ctx.resume();
+  if (ctx.state !== 'running') void ctx.resume().catch(() => {});
   for (const file of new Set(Object.values(FILES))) void load(ctx, file);
 }
 
@@ -52,8 +58,11 @@ function load(c: AudioContext, file: string): Promise<AudioBuffer | null> {
 function play(file: string): void {
   const c = ctx;
   if (!c) return;
+  // Works without a tap on Android; iOS needs unlockAudio() from a tap.
+  if (c.state !== 'running') void c.resume().catch(() => {});
+  const askedAt = performance.now();
   void load(c, file).then((buffer) => {
-    if (!buffer) return;
+    if (!buffer || performance.now() - askedAt > MAX_DELAY_MS) return;
     const source = c.createBufferSource();
     source.buffer = buffer;
     const gain = c.createGain();

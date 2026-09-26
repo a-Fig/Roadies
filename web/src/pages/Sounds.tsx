@@ -5,7 +5,7 @@ export function Sounds() {
   return (
     <main className="setup">
       <h1>Sounds</h1>
-      <p className="car-sub">Tap to hear each one. Turn the ringer up.</p>
+      <p className="car-sub">Tap to hear each one. On iPhone, turn off silent mode first.</p>
       <div className="chips">
         {CHIME_NAMES.map((name) => (
           <button
