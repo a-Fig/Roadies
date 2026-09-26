@@ -8,6 +8,16 @@ DIR="$(cd "$(dirname "$0")/.." && pwd)/.livekit"
 
 if command -v livekit-server >/dev/null 2>&1; then
   BIN=livekit-server
+elif [[ "$(uname -s)" == MINGW* || "$(uname -s)" == MSYS* ]]; then
+  # Windows (Git Bash): the release ships a zip with livekit-server.exe.
+  BIN="$DIR/livekit-server.exe"
+  if [ ! -x "$BIN" ]; then
+    mkdir -p "$DIR"
+    echo "Downloading LiveKit server v$VERSION..." >&2
+    curl -fsSL -o "$DIR/livekit.zip" "https://github.com/livekit/livekit/releases/download/v$VERSION/livekit_${VERSION}_windows_amd64.zip"
+    unzip -o -q "$DIR/livekit.zip" livekit-server.exe -d "$DIR"
+    rm "$DIR/livekit.zip"
+  fi
 else
   case "$(uname -s)-$(uname -m)" in
     Linux-x86_64) ARCH=linux_amd64 ;;

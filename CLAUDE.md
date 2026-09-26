@@ -12,7 +12,7 @@ npm workspaces: `shared/`, `server/`, `web/`. Node 22+.
 npm install
 npm run dev              # local LiveKit (dev mode) + server :8080 + Vite :5173
 npm run dev:app          # server + web only (when .env points at LiveKit Cloud)
-npm run livekit          # just the local LiveKit server (downloads it on Linux; macOS: brew install livekit)
+npm run livekit          # just the local LiveKit server (downloads it on Linux and Windows/Git Bash; macOS: brew install livekit)
 npm run fake-phones -- 12 [spot] [serverUrl]   # talking (beeping) fake phones via @livekit/rtc-node
 
 npm test                 # Vitest: shared/test + server/test
