@@ -55,6 +55,11 @@ export class SpeechGate {
     return this.speaking;
   }
 
+  /** Current background level (RMS), for tuning logs. */
+  get floor(): number {
+    return this.noiseFloor;
+  }
+
   write(pcm: Int16Array): void {
     const ms = (pcm.length / this.o.sampleRate) * 1000;
     const rms = computeRms(pcm);
