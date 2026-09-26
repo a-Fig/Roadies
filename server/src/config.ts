@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,7 +19,8 @@ export const config = {
     apiKey: env.LIVEKIT_API_KEY ?? 'devkey',
     apiSecret: env.LIVEKIT_API_SECRET ?? 'secret',
   },
-  presenterKey: env.PRESENTER_KEY ?? 'demo',
+  /** Never fall back to a guessable key in production. */
+  presenterKey: env.PRESENTER_KEY ?? (production ? randomUUID().slice(0, 8) : 'demo'),
   /** 'google' needs Google Cloud credentials; 'fake' only hears /dev/say. */
   recognizer: (env.RECOGNIZER ?? (production ? 'google' : 'fake')) as RecognizerKind,
   googleSttModel: env.GOOGLE_STT_MODEL ?? 'command_and_search',

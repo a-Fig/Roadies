@@ -115,10 +115,15 @@ export class DriveSession {
         const previous = this.view.room;
         if (previous && previous.id !== msg.room.id) chimes.moved();
         this.update({ room: msg.room });
-        this.voice.join(msg.room.id, msg.livekit, this.view.state).catch((err: Error) => {
-          console.error(err);
-          this.update({ error: `Voice connection failed: ${err.message}` });
-        });
+        this.voice
+          .join(msg.room.id, msg.livekit, this.view.state)
+          .then(() => {
+            if (this.view.error?.startsWith('Voice connection failed')) this.update({ error: null });
+          })
+          .catch((err: Error) => {
+            console.error(err);
+            this.update({ error: `Voice connection failed: ${err.message}` });
+          });
         break;
       }
       case 'roster': {

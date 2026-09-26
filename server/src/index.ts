@@ -87,7 +87,8 @@ server.listen(config.port, () => {
   console.log(`Roadies server on :${config.port}`);
   console.log(`  LiveKit: ${config.livekit.url} (phones use ${config.livekit.publicUrl})`);
   console.log(`  Recognizer: ${config.recognizer}, listener: ${config.listener ? 'on' : 'off'}`);
-  if (config.devEndpoints) console.log('  Dev endpoints: /dev/say, /dev/state');
+  if (config.devEndpoints) console.log('  Dev endpoints: /dev/say, /dev/state, /dev/reset');
+  if (!process.env.PRESENTER_KEY) console.log(`  Presenter: /presenter?key=${config.presenterKey}`);
 });
 
 async function shutdown() {

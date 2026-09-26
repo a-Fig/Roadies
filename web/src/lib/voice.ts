@@ -77,7 +77,12 @@ export class VoiceClient {
       .on(RoomEvent.AudioPlaybackStatusChanged, () => this.onAudioBlocked(!room.canPlaybackAudio))
       .on(RoomEvent.ConnectionStateChanged, (s) => this.onConnection(s));
 
-    await room.connect(access.url, access.token, { autoSubscribe: false });
+    try {
+      await room.connect(access.url, access.token, { autoSubscribe: false });
+    } catch (err) {
+      if (this.room !== room) return; // cancelled by a newer join, not a failure
+      throw err;
+    }
     if (this.room !== room) {
       // Superseded by a newer join while connecting.
       await room.disconnect();
