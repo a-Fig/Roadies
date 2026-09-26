@@ -91,3 +91,12 @@ gcloud run deploy roadies --source . --project $PROJECT --region us-west1 \
 ```
 
 Then open `https://<service-url>/presenter?key=<PRESENTER_KEY>` on the projector.
+
+### Custom domain (roadies.afig.dev)
+
+A Cloudflare Worker in `deploy/proxy/` passes `roadies.afig.dev` through to the
+Cloud Run URL (pages, assets and the `/ws` socket; LiveKit audio goes to LiveKit
+Cloud directly). Set `ORIGIN` in `deploy/proxy/wrangler.jsonc` to the service URL,
+then `npx wrangler deploy -c deploy/proxy/wrangler.jsonc` (creates the DNS record
+and certificate). The presenter's QR code uses the page's own origin, so open the
+projector at `https://roadies.afig.dev/presenter?key=...`.

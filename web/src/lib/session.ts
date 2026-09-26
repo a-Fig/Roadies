@@ -1,5 +1,5 @@
 import {
-  INITIAL_VOICE_STATE,
+  joinState,
   type CarProfile,
   type ClientMessage,
   type Command,
@@ -51,7 +51,8 @@ export class DriveSession {
     this.view = {
       myId: null,
       profile: opts.profile,
-      state: INITIAL_VOICE_STATE,
+      // What the server will send in its welcome, so a demo phone never flashes "live".
+      state: joinState(opts.mode),
       room: null,
       speakers: [],
       heard: null,
@@ -149,7 +150,7 @@ export class DriveSession {
         break;
       case 'reset':
         void this.voice.leave();
-        this.update({ room: null, state: INITIAL_VOICE_STATE, speakers: [], heard: null });
+        this.update({ room: null, state: joinState(this.opts.mode), speakers: [], heard: null });
         this.socket.send(this.hello());
         break;
       case 'error':

@@ -6,3 +6,6 @@ test-results
 playwright-report
 .env
 .git
+.claude
+utterances
+e2e-live-voice.mjs
