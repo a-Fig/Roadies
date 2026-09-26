@@ -13,7 +13,8 @@ export default defineConfig({
     proxy: {
       '/ws': { target: server, ws: true },
       '/dev': server,
-      '/healthz': server,
+      '/health': server,
+      '/api': server,
     },
   },
 });

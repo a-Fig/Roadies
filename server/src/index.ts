@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import express from 'express';
+import { STATS_PATH, type PublicStats } from '@roadies/shared';
 import { config, LISTENER_IDENTITY } from './config';
 import { attachHub } from './hub';
 import { ListenerManager } from './listener';
@@ -54,6 +55,9 @@ app.use(express.json({ limit: '16kb' }));
 // Cloud Run's front end answers /healthz itself, so /health is the one to probe there.
 app.get(['/health', '/healthz'], (_req, res) => {
   res.json({ ok: true });
+});
+app.get(STATS_PATH, (_req, res) => {
+  res.set('Cache-Control', 'no-store').json(world.stats() satisfies PublicStats);
 });
 
 if (config.devEndpoints) {
