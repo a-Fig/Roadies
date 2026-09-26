@@ -155,6 +155,7 @@ a {
   font-weight: 700;
   font-size: 1.1rem;
   font-variant-numeric: tabular-nums;
+  min-height: 1.5em;
 }
 
 .live-dot {

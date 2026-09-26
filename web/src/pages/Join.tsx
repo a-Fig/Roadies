@@ -39,6 +39,8 @@ function useDriversTalking(active: boolean): number | null {
     if (!active) return;
     let stopped = false;
     const load = async () => {
+      // Background tabs don't poll: every request goes through the Cloudflare Worker.
+      if (document.hidden) return;
       try {
         const res = await fetch(STATS_PATH, { cache: 'no-store' });
         if (!res.ok) return;
@@ -50,9 +52,12 @@ function useDriversTalking(active: boolean): number | null {
     };
     void load();
     const timer = setInterval(() => void load(), 5_000);
+    const onVisible = () => void load();
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       stopped = true;
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [active]);
   return talking;
@@ -110,12 +115,15 @@ export function Join({ mode, profile, spot, kicker, cta, footer }: JoinProps) {
         <span>Roadies</span>
       </div>
       <p className="kicker">{kicker}</p>
-      {talking !== null && (
-        <p className="live-count">
-          <span className="live-dot" aria-hidden="true" />
-          {talking === 0 ? 'No one’s talking yet. Be the first.' : `${talking} ${talking === 1 ? 'driver' : 'drivers'} talking`}
-        </p>
-      )}
+      {/* Always rendered, so the button below doesn't shift when the count arrives. */}
+      <p className="live-count">
+        {talking !== null && (
+          <>
+            <span className="live-dot" aria-hidden="true" />
+            {talking === 0 ? 'No one’s talking yet. Be the first.' : `${talking} ${talking === 1 ? 'driver' : 'drivers'} talking`}
+          </>
+        )}
+      </p>
       <div className="car-card">
         <span className="avatar big" style={{ color: colorHex(profile.color) }}>
           <CarIcon />
