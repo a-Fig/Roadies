@@ -19,12 +19,18 @@ async function newContext(browser: Browser, options: Parameters<Browser['newCont
   return context;
 }
 
-async function phone(browser: Browser, spot: string): Promise<Page> {
+/** A demo phone. Demo mode joins muted; unless `live: false`, it then taps Unmute like a judge would. */
+async function phone(browser: Browser, spot: string, { live = true } = {}): Promise<Page> {
   const context = await newContext(browser, { ...devices['Pixel 7'], permissions: ['microphone'] });
   const page = await context.newPage();
   await page.goto(`${BASE}/demo?spot=${spot}`);
   await page.getByRole('button', { name: 'Join the jam' }).click();
   await expect(page.locator('.voice-status')).toHaveText(/Voice Connected/);
+  await expect(page.locator('.banner')).toHaveText('MUTED · say “unmute”');
+  if (live) {
+    await page.getByRole('button', { name: 'Unmute' }).click();
+    await expect(page.locator('.banner')).toHaveCount(0);
+  }
   return page;
 }
 
@@ -75,6 +81,24 @@ test('two phones in the same jam share a room and hear each other', async ({ bro
   await expect.poll(async () => (await serverState(request)).heardSamples?.[idA] ?? 0).toBeGreaterThan(16_000);
 
   await a.screenshot({ path: `${SHOTS}/phone-live.png` });
+});
+
+test('demo phones join muted: the listener hears you, the room does not, until you say "unmute"', async ({ browser, request }) => {
+  const a = await phone(browser, 'sfo', { live: false });
+  const b = await phone(browser, 'sfo');
+  const idA = await myId(a);
+  // A can hear the room while muted...
+  await expect.poll(() => subscribed(a)).toBe(1);
+  // ...the listener hears A, so "unmute" works...
+  await expect.poll(() => listenerHears(request, idA)).toBe(true);
+  // ...but B never gets A's audio.
+  await b.waitForTimeout(1000);
+  expect(await subscribed(b)).toBe(0);
+  await a.screenshot({ path: `${SHOTS}/phone-joined-muted.png` });
+
+  expect((await say(request, idA, 'unmute')).cmd).toBe('unmute');
+  await expect(a.locator('.banner')).toHaveCount(0);
+  await expect.poll(() => subscribed(b)).toBe(1);
 });
 
 test('saying "mute" hides your mic from the room but not from the listener', async ({ browser, request }) => {

@@ -16,6 +16,7 @@ and this doc disagree, fix one of them.
 | --- | --- |
 | Goal | Hackathon demo, built in 48 hours. Robustness, scale, moderation and legal come later. |
 | Demo format | Audience scans a QR code, opens a mobile **web app** (no install), and becomes a simulated car. |
+| Demo venue | Judges come to our table a few at a time; the laptop screen is the projector. No filler bots: the scripted placement stays as is. |
 | Communication | **Live voice only**, heavily modeled on Discord voice channels. No text chat. |
 | Controls | Bare spoken commands: `mute`, `unmute`, `deafen`, `undeafen`, `disconnect`, `connect`. No wake word. Buttons mirror them. |
 | Rooms | Max **8** people. Filled by proximity; reaches far away only when needed. |
@@ -24,7 +25,7 @@ and this doc disagree, fix one of them.
 | Voice transport | **LiveKit** (Cloud in prod, `livekit-server --dev` locally). |
 | Command recognition | **Server-side**: hidden listener joins each room, Google Speech-to-Text on each person's audio. |
 | Hosting | Node + TypeScript server on **Google Cloud Run** (1 always-on instance, CPU always allocated). Laptop + tunnel as backup. |
-| Join state | Join **live** (unmuted), Discord default. |
+| Join state | Normal mode joins **live** (unmuted), Discord default. Demo mode joins **muted** (you hear the room; say "unmute" to talk), because judges' phones share one table and open mics would feed back. Changed 2026-09-26 in the laptop session. |
 | Phone UI | **Glanceable driving mode**: one huge status line, giant buttons, no member list. |
 | Audio feedback | Discord-style **chimes** (original sounds synthesized with Web Audio). |
 | After `disconnect` | Mic keeps listening for `connect` (screen says so). Rejoin old room if it has space, else re-match. |
@@ -141,6 +142,8 @@ nothing is stored.
 
 - QR on the projector → `https://<host>/demo`. One tap ("Join the jam") is
   required so the browser allows mic + audio playback.
+- You join **muted**: you hear the room, the screen says `MUTED · say "unmute"`,
+  and saying "unmute" is the first thing you do.
 - Each joiner gets a random car identity and a **server-assigned spot**. The
   assignment is scripted so every rule shows up early on the projector:
   - the first wave fills **Hospital Curve** past 8 → a second room opens;
@@ -224,8 +227,12 @@ backend, rooms and voice commands.
 
 ## 13. Known risks
 
-- Same-room echo with live mics (mitigated by browser AEC/NS, rooms of ≤ 8,
-  presenter "mute everyone").
+- Same-room echo with live mics (mitigated by demo joining muted, browser
+  AEC/NS, rooms of ≤ 8, presenter "mute everyone").
+- Cross-triggering: muted mics still stream to the listener, so one person
+  saying "unmute" near several phones could trigger all of them. To be checked
+  in the multi-phone test; the candidate fix is "loudest phone wins" within
+  about 1.5 s.
 - Speech recognition accuracy in a noisy room (phrase boosting, aliases, tune on
   laptop).
 - Venue Wi-Fi (LiveKit Cloud handles NAT/TURN; have a phone hotspot as backup).

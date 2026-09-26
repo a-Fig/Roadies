@@ -4,6 +4,7 @@ import {
   INITIAL_VOICE_STATE,
   isHearing,
   isTransmitting,
+  joinState,
   parseCommand,
   type Command,
   type VoiceState,
@@ -15,6 +16,14 @@ describe('voice state (Discord semantics)', () => {
   it('joins live', () => {
     expect(isTransmitting(INITIAL_VOICE_STATE)).toBe(true);
     expect(isHearing(INITIAL_VOICE_STATE)).toBe(true);
+  });
+
+  it('normal mode joins live; demo mode joins muted but hearing', () => {
+    expect(joinState('live')).toEqual(INITIAL_VOICE_STATE);
+    const demo = joinState('demo');
+    expect(isTransmitting(demo)).toBe(false);
+    expect(isHearing(demo)).toBe(true);
+    expect(isTransmitting(applyCommand(demo, 'unmute'))).toBe(true);
   });
 
   it('mute stops transmitting but keeps hearing', () => {
