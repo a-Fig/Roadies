@@ -51,7 +51,8 @@ const ticker = setInterval(() => world.tick(), 1000);
 
 const app = express();
 app.use(express.json({ limit: '16kb' }));
-app.get('/healthz', (_req, res) => {
+// Cloud Run's front end answers /healthz itself, so /health is the one to probe there.
+app.get(['/health', '/healthz'], (_req, res) => {
   res.json({ ok: true });
 });
 
