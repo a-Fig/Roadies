@@ -72,14 +72,14 @@ describe('World', () => {
     expect(t.created).toEqual([assigned.room.id]);
   });
 
-  it('overfills Hospital Curve with the opening wave: 8 + 3', async () => {
+  it('overfills Hospital Curve with the opening wave: 4 + 2', async () => {
     const t = setup();
-    for (let i = 0; i < 11; i++) t.join(`car-${String(i).padStart(5, '0')}`);
+    for (let i = 0; i < 6; i++) t.join(`car-${String(i).padStart(5, '0')}`);
     await t.flush();
     const rooms = t.world.snapshot().rooms;
     expect(rooms.map((r) => [r.name, r.activeCount])).toEqual([
-      ['Hospital Curve #1', 8],
-      ['Hospital Curve #2', 3],
+      ['Hospital Curve #1', 4],
+      ['Hospital Curve #2', 2],
     ]);
   });
 
@@ -121,11 +121,16 @@ describe('World', () => {
 
   it('merges a lone commuter after 15 s and hands them a new token', async () => {
     const t = setup();
+    // Rooms hold 4: fill San Jose first, so the loner is forced to open its
+    // own room (any-distance placement would otherwise pull it straight in).
     t.join('car-aaaaa', { spot: 'san-jose' });
     t.join('car-bbbbb', { spot: 'san-jose' });
-    t.join('car-loner', { spot: 'loner' });
+    t.join('car-ccccc', { spot: 'san-jose' });
+    t.join('car-ddddd', { spot: 'san-jose' }); // San Jose room full (4/4)
+    t.join('car-loner', { spot: 'loner' }); // full -> loner opens its own room, alone
     await t.flush();
     const lonerRoom = t.last('car-loner', 'assigned')!.room.id;
+    t.world.command(t.pub('car-ddddd'), 'disconnect', 'voice'); // free a seat, still 3 active
     t.advance(14_000);
     await t.flush();
     expect(t.last('car-loner', 'assigned')!.room.id).toBe(lonerRoom);
@@ -133,7 +138,7 @@ describe('World', () => {
     await t.flush();
     const merged = t.last('car-loner', 'assigned')!;
     expect(merged.room.name).toBe('San Jose 101/880 #1');
-    expect(merged.room.members).toHaveLength(3);
+    expect(merged.room.members).toHaveLength(4);
     expect(t.deleted).toContain(lonerRoom);
     expect(t.world.snapshot().log.some((l) => l.includes('merged into San Jose'))).toBe(true);
   });

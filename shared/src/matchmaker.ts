@@ -3,15 +3,12 @@ import { haversineMeters, type LatLng } from './geo';
 export interface MatchConfig {
   /** Max active members per room. */
   capacity: number;
-  /** Join an existing room only if one of its members is at most this far away. */
-  nearbyMeters: number;
   /** A lone member is merged into the nearest open room after this long. */
   aloneMergeMs: number;
 }
 
 export const MATCH_CONFIG: MatchConfig = {
-  capacity: 8,
-  nearbyMeters: 5000,
+  capacity: 4,
   aloneMergeMs: 15_000,
 };
 
@@ -33,7 +30,7 @@ export interface MatchRoom {
   aloneSince: number | null;
 }
 
-export type JoinReason = 'nearby' | 'new-room' | 'merge';
+export type JoinReason = 'closest' | 'new-room' | 'merge' | 'random' | 'reconnect';
 
 export type MatchEvent =
   | { type: 'room-created'; roomId: string }
@@ -86,23 +83,39 @@ export class Matchmaker {
     return n;
   }
 
-  /** Put a new member into the nearest open room nearby, or a new room. */
+  /**
+   * The closest active member (in any room with a free seat) to `pos`, other
+   * than `memberId` itself. Used for the disconnected-screen preview and for
+   * `place`/`reconnect`, so all three can never disagree.
+   */
+  closestOpen(memberId: string, pos: LatLng): { roomId: string; memberId: string } | null {
+    let best: { roomId: string; memberId: string } | null = null;
+    let bestDist = Infinity;
+    for (const room of this.rooms.values()) {
+      if (this.activeCount(room) >= this.config.capacity) continue;
+      for (const m of room.members.values()) {
+        if (!m.active || m.id === memberId) continue;
+        const d = haversineMeters(m.pos, pos);
+        if (d < bestDist) {
+          bestDist = d;
+          best = { roomId: room.id, memberId: m.id };
+        }
+      }
+    }
+    return best;
+  }
+
+  /** Put a new member into the closest active driver's room with space, at any distance, or a new room. */
   place(memberId: string, pos: LatLng, now: number): MatchEvent[] {
     if (this.memberRoom.has(memberId)) throw new Error(`${memberId} is already placed`);
     const events: MatchEvent[] = [];
-    let target: MatchRoom | undefined;
-    let targetDist = Infinity;
-    for (const room of this.rooms.values()) {
-      const active = this.activeCount(room);
-      if (active === 0 || active >= this.config.capacity) continue;
-      const d = this.distanceTo(room, pos, memberId);
-      if (d <= this.config.nearbyMeters && d < targetDist) {
-        target = room;
-        targetDist = d;
-      }
-    }
-    let reason: JoinReason = 'nearby';
-    if (!target) {
+    const match = this.closestOpen(memberId, pos);
+    let target: MatchRoom;
+    let reason: JoinReason;
+    if (match) {
+      target = this.rooms.get(match.roomId)!;
+      reason = 'closest';
+    } else {
       target = this.createRoom(pos, now);
       events.push({ type: 'room-created', roomId: target.id });
       reason = 'new-room';
@@ -127,18 +140,63 @@ export class Matchmaker {
     return [{ type: 'active-changed', memberId, roomId: room.id, active: false }];
   }
 
-  /** Back into the old room if it has space, otherwise matchmake again. */
+  /**
+   * Re-match to the closest active driver with a free seat, right now, using
+   * the current position — same rule as `place`. If that is the current ghost
+   * room, reactivate in place (no leave/join, so the phone doesn't switch
+   * LiveKit rooms); otherwise leave the old room and join (or open) the new one.
+   */
   reconnect(memberId: string, now: number): MatchEvent[] {
     const room = this.roomOf(memberId);
     const member = room?.members.get(memberId);
     if (!room || !member || member.active) return [];
-    if (this.activeCount(room) < this.config.capacity) {
+    const match = this.closestOpen(memberId, member.pos);
+    if (match && match.roomId === room.id) {
       member.active = true;
       this.refreshAlone(room, now);
       return [{ type: 'active-changed', memberId, roomId: room.id, active: true }];
     }
+    const pos = member.pos;
     const events = this.remove(memberId, now);
-    return [...events, ...this.place(memberId, member.pos, now)];
+    const target = match ? this.rooms.get(match.roomId)! : this.createRoom(pos, now);
+    if (!match) events.push({ type: 'room-created', roomId: target.id });
+    this.addMember(target, { id: memberId, pos, active: true }, now);
+    events.push({ type: 'joined', memberId, roomId: target.id, reason: 'reconnect' });
+    return events;
+  }
+
+  /**
+   * While disconnected, jump to a uniformly random open room (at least one
+   * active member, not full) other than the current one. Null if connected,
+   * not found, or there is nowhere else open.
+   */
+  random(memberId: string, now: number, rng: () => number): MatchEvent[] | null {
+    const room = this.roomOf(memberId);
+    const member = room?.members.get(memberId);
+    if (!room || !member || member.active) return null;
+    const candidates = [...this.rooms.values()].filter((r) => {
+      if (r.id === room.id) return false;
+      const active = this.activeCount(r);
+      return active > 0 && active < this.config.capacity;
+    });
+    if (candidates.length === 0) return null;
+    const target = candidates[Math.floor(rng() * candidates.length)]!;
+    const pos = member.pos;
+    const events = this.remove(memberId, now);
+    this.addMember(target, { id: memberId, pos, active: true }, now);
+    events.push({ type: 'joined', memberId, roomId: target.id, reason: 'random' });
+    return events;
+  }
+
+  /** Whether `random` has anywhere to send this member right now (excluding its own room). */
+  hasRandomTarget(memberId: string): boolean {
+    const room = this.roomOf(memberId);
+    for (const r of this.rooms.values()) {
+      if (room && r.id === room.id) continue;
+      const active = this.activeCount(r);
+      if (active > 0 && active < this.config.capacity) return true;
+    }
+    return false;
   }
 
   remove(memberId: string, now: number): MatchEvent[] {

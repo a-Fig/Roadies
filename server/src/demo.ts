@@ -14,11 +14,12 @@ export interface Motion {
 export type Spot = { kind: 'jam'; jam: Jam } | { kind: 'loner' };
 
 /**
- * Where the n-th demo joiner goes. The first wave overfills Hospital Curve so
- * a second room opens early; then the smaller jams fill; lone commuters show
- * up now and then so the 15-second merge happens on screen.
+ * Where the n-th demo joiner goes. Rooms hold 4, so the first wave (6 cars)
+ * overfills Hospital Curve and a second room opens early; then the smaller
+ * jams fill; lone commuters show up now and then so the 15-second merge
+ * happens on screen.
  */
-const OPENING_WAVE = 11;
+const OPENING_WAVE = 6;
 const CYCLE: readonly string[] = [
   'san-mateo',
   'sfo',

@@ -18,9 +18,9 @@ and this doc disagree, fix one of them.
 | Demo format | Audience scans a QR code, opens a mobile **web app** (no install), and becomes a simulated car. |
 | Demo venue | Judges come to our table a few at a time; the laptop screen is the projector. No filler bots: the scripted placement stays as is. |
 | Communication | **Live voice only**, heavily modeled on Discord voice channels. No text chat. |
-| Controls | Bare spoken commands: `mute`, `unmute`, `deafen`, `undeafen`, `disconnect`, `connect`. No wake word. Buttons mirror them. |
-| Rooms | Max **8** people. Filled by proximity; reaches far away only when needed. |
-| Matchmaking | Nearby first (≤ 5 km to nearest member), else new room; alone ≥ 15 s → merged into nearest open room at any distance. Sticky. |
+| Controls | Bare spoken commands: `mute`, `unmute`, `deafen`, `undeafen`, `disconnect`, `connect`, `random`. No wake word. Buttons mirror them. |
+| Rooms | Max **4** people. Filled by proximity: always the closest room with a free seat. |
+| Matchmaking | New car joins the closest active driver's room with a free seat, at **any distance** — else opens a new room. Alone ≥ 15 s → merged into the closest open room at any distance (unchanged). Sticky. **Changed 2026-09-26 by the owner** (dropped the old 5 km join cap; capacity 8 → 4). |
 | Demo locations | Server assigns simulated spots on real 101 NB choke points; cars inch forward. Normal link uses real GPS. |
 | Voice transport | **LiveKit** (Cloud in prod, `livekit-server --dev` locally). |
 | Command recognition | **Server-side**: hidden listener joins each room, Google Speech-to-Text on each person's audio. |
@@ -28,7 +28,7 @@ and this doc disagree, fix one of them.
 | Join state | Normal mode joins **live** (unmuted), Discord default. Demo mode joins **muted** (you hear the room; say "unmute" to talk), because judges' phones share one table and open mics would feed back. Changed 2026-09-26 in the laptop session. |
 | Phone UI | **Glanceable driving mode**: one huge status line, giant buttons, no member list. |
 | Audio feedback | Discord-style **chimes** (original sounds synthesized with Web Audio). |
-| After `disconnect` | Mic keeps listening for `connect` (screen says so). Rejoin old room if it has space, else re-match. |
+| After `disconnect` | Mic keeps listening for `connect` / `random` (screen shows a live preview of each). `connect` re-matches to the closest active driver with a free seat *right now*, same rule as joining — reactivates in place if that's your own (ghost) room. `random` jumps to a uniformly random open room other than your own; only works while disconnected. **Changed 2026-09-26 by the owner.** |
 | Projector | Live map + Discord-style channel list + hidden presenter controls + QR code. |
 | Identity | Demo: random car (e.g. "Teal Civic"). Normal: setup screen to pick car + name. No accounts. |
 | Normal mode | Light but real: setup screen (saved on device) + real GPS matchmaking. |
@@ -82,22 +82,48 @@ and this doc disagree, fix one of them.
 
 ## 3. Matchmaking
 
-Pure, unit-tested module in `shared/`.
+Pure, unit-tested module in `shared/` (`Matchmaker`, `shared/src/matchmaker.ts`).
 
-- **Distance** = haversine distance from the newcomer to the **nearest active
-  member** of a room (not the centroid), so you join whoever is actually closest.
+**Changed 2026-09-26 by the owner:** dropped the 5 km join cap (any distance now);
+capacity 8 → 4; added `random` and the disconnected-screen preview.
+
+- **Distance** = haversine distance from the newcomer (or the reconnecting/
+  randomizing driver) to the **nearest active member** of a room (not the
+  centroid), so you join whoever is actually closest.
 - **Active** = connected (not ghosted by `disconnect`). Only active members count
   toward capacity and distance.
-- **Place(car)**:
-  1. Candidate rooms = rooms with `< 8` active members.
-  2. If any candidate has a member within **5 km**, join the nearest one.
-  3. Otherwise create a new room at the car's location.
-- **Merge tick** (every second): any room with exactly **1** active member for
-  **≥ 15 s** has that member moved into the nearest other open room at **any**
-  distance (if one exists). Empty rooms are deleted.
+- **`closestOpen(memberId, pos)`**: the one pure lookup for "which room would you
+  join right now" — the closest room with `< 4` active members and at least one
+  active member other than yourself, at any distance, or `null` if none. Used by
+  **both** `place` and `reconnect` (and the disconnected-screen preview below), so
+  they can never disagree with each other.
+- **Place (new car)**:
+  1. `closestOpen(car, pos)`.
+  2. If it found a room, join it (reason `closest`).
+  3. Otherwise create a new room at the car's location (reason `new-room`).
+- **Merge tick** (every second, unchanged): any room with exactly **1** active
+  member for **≥ 15 s** has that member moved into the closest other open room at
+  **any** distance (if one exists). Empty rooms are deleted.
 - **Sticky**: no re-matching as you drive. You leave a room only by `disconnect`
-  (then `connect` → old room if it still has space, else Place again), by closing
-  the app, or by the lone-merge rule.
+  (then `connect` or `random`), by closing the app, or by the lone-merge rule.
+- **`connect`** (re-match while disconnected): `closestOpen(car, car's current
+  position)`.
+  - If the match is your own ghost room, you **reactivate in place** — no LiveKit
+    room switch, just an `active-changed` state update.
+  - Otherwise you're removed from the old room and added to the target (reason
+    `reconnect`), or a brand new room is opened if there's no match at all.
+- **`random`** (only while disconnected — while connected it's ignored entirely:
+  no state change, no log): picks uniformly at random, via the injected `rng`,
+  among open rooms (≥ 1 active member, `< 4`) **other than** your current ghost
+  room, and moves you there active (reason `random`; mute/deafen state is
+  preserved). If there's no such room, you stay disconnected and the server sends
+  `{t:'notice', code:'no-open-rooms'}`.
+- **Disconnected-screen preview**: while disconnected, the server also computes
+  `closestOpen` (excluding yourself) and whether `random` has anywhere to go, and
+  pushes `{t:'closest', match, randomAvailable}` — sent on disconnect and again
+  whenever either changes (checked every `World.tick()`). The phone composes the
+  display text from this data; strings live together in the phone code so a
+  separate i18n pass can translate them.
 - **Room names**: nearest landmark on the corridor + ordinal, e.g.
   `Hospital Curve #2`. Outside the Bay Area landmark list: `Jam #n`.
 
@@ -106,7 +132,7 @@ Pure, unit-tested module in `shared/`.
 Commands (whole utterance only — the transcript, normalized, must be exactly one
 command; "don't mute me" does nothing):
 
-`mute` · `unmute` · `deafen` · `undeafen` · `disconnect` · `connect`
+`mute` · `unmute` · `deafen` · `undeafen` · `disconnect` · `connect` · `random`
 
 State follows Discord semantics:
 
@@ -116,8 +142,9 @@ State follows Discord semantics:
 | `unmute` | selfMute = false; if deafened, also undeafen (Discord behavior) |
 | `deafen` | selfDeaf = true (mic is also cut while deafened) |
 | `undeafen` | selfDeaf = false (mic returns to selfMute) |
-| `disconnect` | leave the room (ghost), keep listening for `connect` |
-| `connect` | rejoin: old room if space, else Place |
+| `disconnect` | leave the room (ghost), keep listening for `connect` / `random` |
+| `connect` | re-match to the closest active driver with a free seat, right now (§3) |
+| `random` | while disconnected only: jump to a random open room (ignored while connected) |
 
 - *Transmitting* = connected ∧ ¬selfMute ∧ ¬selfDeaf.
 - *Hearing* = connected ∧ ¬selfDeaf.
@@ -146,15 +173,20 @@ nothing is stored.
   and saying "unmute" is the first thing you do.
 - Each joiner gets a random car identity and a **server-assigned spot**. The
   assignment is scripted so every rule shows up early on the projector:
-  - the first wave fills **Hospital Curve** past 8 → a second room opens;
+  - the first wave (6 cars) fills **Hospital Curve** past capacity (4) → a
+    second room opens;
   - later joiners spread across the other jams;
   - periodically a **lone commuter** spawns far south (Morgan Hill / Gilroy),
     sits alone, then gets merged after 15 s.
-- Jams (all 101 NB, spaced > 5 km apart so they form separate rooms):
+- Jams (all 101 NB, spaced > 5 km apart so they read as distinct places on the
+  map — room assignment itself is by capacity only, at any distance):
   San Jose (101/880), Mountain View (101/85), Palo Alto, Redwood City,
   San Mateo (101/92), Millbrae / SFO, Hospital Curve (101/280 merge).
 - Cars inch north along the real highway geometry at crawl speed.
 - `?spot=<jam>` forces a spot (for scripted presenter/teammate phones).
+- `connect` and `random` aren't part of the scripted table demo (no phone is
+  ever disconnected on cue) — they're exercised in normal mode and by the e2e
+  tests.
 
 ## 6. Normal mode
 
@@ -170,7 +202,11 @@ nothing is stored.
   accents while live, **amber** for warnings.
 - Three giant buttons: Mute, Deafen, Disconnect/Connect (Discord red).
 - Hint strip: `Say: mute · unmute · deafen · undeafen · disconnect`, flashing the
-  last command heard. After disconnect: "Listening for 'connect'".
+  last command heard. After disconnect: two tappable cards, one for `connect`
+  and one for `random`, each showing the spoken command, a one-line
+  description, and live context (who `connect` would match you with, or
+  whether `random` has anywhere to go); tapping a card is the same as saying
+  it (§3, §4).
 - Audio: echo cancellation, noise suppression, auto gain on.
 - Screen wake lock while in a room, so a mounted phone doesn't sleep. If the
   page is hidden anyway, show a "Keep Roadies on screen" notice on return.
@@ -183,7 +219,7 @@ undeafen, disconnect, connect, someone joined, someone left.
 ## 9. Projector (`/presenter?key=…`)
 
 - Dark Discord-style layout: channel list on the left
-  (`🔊 Hospital Curve #1 — 8/8` with members and live speaking rings), map of the
+  (`🔊 Hospital Curve #1 — 4/4` with members and live speaking rings), map of the
   101 corridor on the right, QR code overlay.
 - Cars = dots colored by room, pulsing green while talking; silent gray
   background traffic makes the jams look real.
@@ -228,7 +264,7 @@ backend, rooms and voice commands.
 ## 13. Known risks
 
 - Same-room echo with live mics (mitigated by demo joining muted, browser
-  AEC/NS, rooms of ≤ 8, presenter "mute everyone").
+  AEC/NS, rooms of ≤ 4, presenter "mute everyone").
 - Cross-triggering: muted mics still stream to the listener, so one person
   saying "unmute" near several phones could trigger all of them. To be checked
   in the multi-phone test; the candidate fix is "loudest phone wins" within

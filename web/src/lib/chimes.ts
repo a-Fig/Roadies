@@ -58,6 +58,8 @@ export const chimes: Record<Command | 'join' | 'leave' | 'moved', () => void> = 
     play([n(784, 0.2, 0.22)]);
   },
   moved: () => play([n(523, 0, 0.1, 'triangle'), n(659, 0.09, 0.1, 'triangle'), n(784, 0.18, 0.22, 'triangle')], 0.15),
+  // Placeholder earcon; superseded when claude/sounds's FILES map (Discord mp3s) merges in.
+  random: () => play([n(392, 0, 0.07, 'triangle'), n(659, 0.05, 0.07, 'triangle'), n(523, 0.1, 0.07, 'triangle'), n(784, 0.15, 0.18, 'triangle')], 0.14),
   join: () => play([n(1047, 0, 0.08, 'triangle'), n(1319, 0.08, 0.16, 'triangle')], 0.12),
   leave: () => play([n(1319, 0, 0.08, 'triangle'), n(988, 0.08, 0.16, 'triangle')], 0.12),
 };

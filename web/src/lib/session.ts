@@ -6,6 +6,7 @@ import {
   type CommandSource,
   type LatLng,
   type Mode,
+  type NoticeCode,
   type RoomInfo,
   type ServerMessage,
   type VoiceState,
@@ -20,6 +21,12 @@ export interface SessionView {
   profile: CarProfile;
   state: VoiceState;
   room: RoomInfo | null;
+  /** While disconnected: who "connect" would match with right now, or null for a new room. */
+  closest: { name: string; color: string; roomName: string } | null;
+  /** While disconnected: whether "random" has anywhere to jump to. */
+  randomAvailable: boolean;
+  /** A transient, non-fatal notice from the server (e.g. "random" had nowhere to go). */
+  notice: { code: NoticeCode; at: number } | null;
   /** LiveKit active speakers (identities), unfiltered. */
   speakers: string[];
   heard: { cmd: Command; source: CommandSource; at: number } | null;
@@ -54,6 +61,9 @@ export class DriveSession {
       // What the server will send in its welcome, so a demo phone never flashes "live".
       state: joinState(opts.mode),
       room: null,
+      closest: null,
+      randomAvailable: false,
+      notice: null,
       speakers: [],
       heard: null,
       socket: 'connecting',
@@ -150,11 +160,25 @@ export class DriveSession {
         break;
       case 'reset':
         void this.voice.leave();
-        this.update({ room: null, state: joinState(this.opts.mode), speakers: [], heard: null });
+        this.update({
+          room: null,
+          state: joinState(this.opts.mode),
+          speakers: [],
+          heard: null,
+          closest: null,
+          randomAvailable: false,
+          notice: null,
+        });
         this.socket.send(this.hello());
         break;
       case 'error':
         this.update({ error: msg.message });
+        break;
+      case 'closest':
+        this.update({ closest: msg.match, randomAvailable: msg.randomAvailable });
+        break;
+      case 'notice':
+        this.update({ notice: { code: msg.code, at: Date.now() } });
         break;
     }
   }

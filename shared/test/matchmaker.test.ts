@@ -6,13 +6,18 @@ const BASE: LatLng = { lat: 37.5, lng: -122.2 };
 /** A point `km` north of BASE. */
 const at = (km: number): LatLng => ({ lat: BASE.lat + km / 111.195, lng: BASE.lng });
 
-const make = () => new Matchmaker({ namer: () => 'Test' });
+const make = (capacity = 4) => new Matchmaker({ namer: () => 'Test', config: { capacity } });
 
 const joinedRoom = (events: MatchEvent[]) => {
   const e = events.find((x) => x.type === 'joined');
   if (!e || e.type !== 'joined') throw new Error('no joined event');
   return e;
 };
+
+// Since placing joins the closest room with space at ANY distance, the only way
+// to get two simultaneously-open rooms in these tests is to fill one to capacity
+// (forcing a genuinely new room to open), then free a seat afterward without
+// dropping activeCount to exactly 1 (which would itself start the alone timer).
 
 describe('Matchmaker.place', () => {
   it('starts a new named room for the first driver', () => {
@@ -23,45 +28,56 @@ describe('Matchmaker.place', () => {
     expect(mm.roomOf('a')?.name).toBe('Test #1');
   });
 
-  it('joins a room with someone within 5 km', () => {
+  it('joins the closest active driver open room, at any distance', () => {
     const mm = make();
     mm.place('a', at(0), 0);
-    const e = joinedRoom(mm.place('b', at(4.9), 0));
-    expect(e.reason).toBe('nearby');
+    const e = joinedRoom(mm.place('b', at(500), 0)); // hundreds of km away
+    expect(e.reason).toBe('closest');
     expect(mm.roomOf('b')).toBe(mm.roomOf('a'));
   });
 
-  it('starts a new room when nobody is within 5 km', () => {
-    const mm = make();
-    mm.place('a', at(0), 0);
-    mm.place('b', at(5.2), 0);
-    expect(mm.roomOf('b')).not.toBe(mm.roomOf('a'));
-    expect(mm.roomOf('b')?.name).toBe('Test #2');
+  it('opens a new room when the only room with a nearby member is full', () => {
+    const mm = make(2);
+    mm.place('a1', at(0), 0);
+    mm.place('a2', at(0.1), 0); // room full (2/2)
+    const e = joinedRoom(mm.place('b', at(0.2), 0)); // very close, but nowhere to sit
+    expect(e.reason).toBe('new-room');
+    expect(mm.roomOf('b')).not.toBe(mm.roomOf('a1'));
   });
 
-  it('measures distance to the nearest member, not the room center', () => {
-    const mm = make();
-    mm.place('a', at(0), 0);
-    mm.place('b', at(4), 0);
-    mm.place('c', at(8), 0); // 4 km from b, 8 km from a
-    expect(mm.roomOf('c')).toBe(mm.roomOf('a'));
+  it('opens a new room when every existing room is full', () => {
+    const mm = make(2);
+    mm.place('a1', at(0), 0);
+    mm.place('a2', at(0.1), 0); // room1 full
+    mm.place('b1', at(1000), 0); // room1 full -> room2
+    mm.place('b2', at(1000.1), 0); // room2 full
+    const e = joinedRoom(mm.place('c', at(500), 0));
+    expect(e.reason).toBe('new-room');
+    expect(mm.listRooms()).toHaveLength(3);
   });
 
-  it('picks the nearest of several nearby rooms', () => {
-    const mm = make();
-    mm.place('a', at(0), 0);
-    mm.place('b', at(6), 0);
-    mm.place('c', at(3.5), 0); // 3.5 km from a, 2.5 km from b
-    expect(mm.roomOf('c')).toBe(mm.roomOf('b'));
+  it('picks the closest of several open rooms, at any distance', () => {
+    const mm = make(3);
+    mm.place('a1', at(0), 0);
+    mm.place('a2', at(0.1), 0);
+    mm.place('a3', at(0.2), 0); // room1 full (3/3)
+    mm.place('b1', at(1000), 0); // room1 full -> room2
+    mm.place('b2', at(1000.1), 0);
+    mm.place('b3', at(1000.2), 0); // room2 full (3/3)
+    mm.remove('a3', 0); // free a seat in room1 (still 2 active)
+    mm.remove('b3', 0); // free a seat in room2 (still 2 active)
+    const e = joinedRoom(mm.place('c', at(1000.15), 0)); // much closer to room2
+    expect(e.reason).toBe('closest');
+    expect(mm.roomOf('c')).toBe(mm.roomOf('b1'));
   });
 
-  it('caps rooms at 8 and opens a new room for the 9th', () => {
+  it('caps rooms at 4 and opens a new room for the 5th', () => {
     const mm = make();
-    for (let i = 0; i < 9; i++) mm.place(`p${i}`, at(i * 0.1), 0);
+    for (let i = 0; i < 5; i++) mm.place(`p${i}`, at(i * 0.1), 0);
     const first = mm.roomOf('p0')!;
-    expect(mm.activeCount(first)).toBe(8);
-    expect(mm.roomOf('p8')).not.toBe(first);
-    expect(mm.roomOf('p8')?.name).toBe('Test #2');
+    expect(mm.activeCount(first)).toBe(4);
+    expect(mm.roomOf('p4')).not.toBe(first);
+    expect(mm.roomOf('p4')?.name).toBe('Test #2');
   });
 
   it('refuses to place the same driver twice', () => {
@@ -71,19 +87,50 @@ describe('Matchmaker.place', () => {
   });
 });
 
+describe('Matchmaker.closestOpen', () => {
+  it('returns null when there is nowhere open', () => {
+    const mm = make();
+    expect(mm.closestOpen('anyone', at(0))).toBeNull();
+  });
+
+  it('excludes the given member and full rooms', () => {
+    const mm = make(2);
+    mm.place('a1', at(0), 0);
+    mm.place('a2', at(0.1), 0); // full, excluded regardless of distance
+    mm.place('b', at(1000), 0); // open
+    const match = mm.closestOpen('a1', at(0.05));
+    expect(match).toEqual({ roomId: mm.roomOf('b')!.id, memberId: 'b' });
+  });
+
+  it('agrees with what reconnect actually does', () => {
+    const mm = make(2);
+    mm.place('a', at(0), 0);
+    mm.place('b', at(0.1), 0); // room1 full
+    mm.disconnect('b', 0);
+    mm.place('x', at(0.15), 0); // refill room1 -> full again
+    mm.place('c', at(1000), 0); // opens room2, still has space
+
+    const ghostPos = mm.roomOf('b')!.members.get('b')!.pos;
+    const preview = mm.closestOpen('b', ghostPos)!;
+    const events = mm.reconnect('b', 0);
+
+    expect(preview.memberId).toBe('c');
+    expect(mm.roomOf('b')!.id).toBe(preview.roomId);
+    expect(joinedRoom(events).roomId).toBe(preview.roomId);
+  });
+});
+
 describe('Matchmaker.tick (lone merge)', () => {
   it('merges a lone driver into the nearest open room after 15 s, at any distance', () => {
-    const mm = make();
+    const mm = make(3);
     mm.place('a', at(0), 0);
-    mm.place('b', at(0.1), 0);
-    mm.place('far', at(60), 1000);
-    const nearer = make(); // sanity: distance really is > 5 km
-    nearer.place('a', at(0), 0);
-    nearer.place('far', at(60), 0);
-    expect(nearer.roomOf('far')).not.toBe(nearer.roomOf('a'));
+    mm.place('a2', at(0.1), 0);
+    mm.place('a3', at(0.2), 0); // room1 full (3/3)
+    mm.place('far', at(60), 1000); // room1 full -> opens room2, alone from the start
+    mm.remove('a3', 1000); // free a seat in room1 (still 2 active, not alone)
 
-    expect(mm.tick(15_999)).toEqual([]);
-    const events = mm.tick(16_000);
+    expect(mm.tick(1000 + 14_999)).toEqual([]);
+    const events = mm.tick(1000 + 15_000);
     expect(events.map((e) => e.type)).toEqual(['left', 'room-deleted', 'joined']);
     expect(joinedRoom(events).reason).toBe('merge');
     expect(mm.roomOf('far')).toBe(mm.roomOf('a'));
@@ -91,20 +138,26 @@ describe('Matchmaker.tick (lone merge)', () => {
   });
 
   it('merges into the nearest open room', () => {
-    const mm = make();
+    const mm = make(3);
     mm.place('a', at(0), 0);
     mm.place('a2', at(0.1), 0);
-    mm.place('b', at(30), 0);
+    mm.place('a3', at(0.2), 0); // room1 full
+    mm.place('b', at(30), 0); // room1 full -> room2
     mm.place('b2', at(30.1), 0);
-    mm.place('loner', at(40), 0);
+    mm.place('b3', at(30.2), 0); // room2 full
+    mm.place('loner', at(40), 0); // both full -> room3, alone
+    mm.remove('a3', 0); // free room1 (still 2 active)
+    mm.remove('b3', 0); // free room2 (still 2 active) — nearer to loner
     mm.tick(15_000);
     expect(mm.roomOf('loner')).toBe(mm.roomOf('b'));
   });
 
   it('merges two loners together', () => {
-    const mm = make();
+    const mm = make(2);
     mm.place('a', at(0), 0);
-    mm.place('b', at(50), 0);
+    mm.place('a2', at(0.1), 0); // room1 full
+    mm.place('b', at(50), 0); // room1 full -> room2, alone
+    mm.remove('a2', 0); // free room1 -> a is alone too
     mm.tick(15_000);
     expect(mm.roomOf('a')).toBe(mm.roomOf('b'));
     expect(mm.listRooms()).toHaveLength(1);
@@ -112,33 +165,44 @@ describe('Matchmaker.tick (lone merge)', () => {
 
   it('never merges into a full room, and keeps waiting', () => {
     const mm = make();
-    for (let i = 0; i < 8; i++) mm.place(`p${i}`, at(i * 0.1), 0);
+    for (let i = 0; i < 4; i++) mm.place(`p${i}`, at(i * 0.1), 0);
     mm.place('loner', at(40), 0);
     expect(mm.tick(60_000)).toEqual([]);
     expect(mm.roomOf('loner')).not.toBe(mm.roomOf('p0'));
-    mm.remove('p7', 60_000);
+    mm.remove('p3', 60_000);
     mm.tick(60_001);
     expect(mm.roomOf('loner')).toBe(mm.roomOf('p0'));
   });
 
   it('restarts the alone timer when someone joins then leaves', () => {
-    const mm = make();
+    const mm = make(3);
     mm.place('a', at(0), 0);
-    mm.place('b', at(0.1), 10_000);
-    mm.remove('b', 12_000);
-    mm.place('far', at(60), 12_000);
-    // a has been alone since 12 s, not since 0 s.
+    mm.place('a1', at(0.1), 0);
+    mm.place('a2', at(0.2), 0); // room A full (3/3)
+    mm.place('far', at(60), 0);
+    mm.place('far1', at(60.1), 0);
+    mm.place('far2', at(60.2), 0); // room B full (3/3)
+    mm.remove('a1', 10_000); // room A: 2 active, not alone
+    mm.remove('far1', 10_000); // room B: 2 active, not alone
+    mm.remove('a2', 12_000); // room A: 1 active (a) — alone since 12_000, not 0
+    mm.remove('far2', 12_000); // room B: 1 active (far) — alone since 12_000, not 0
+    // 20_000 - 12_000 = 8_000 < 15_000 for both, even though both rooms have been
+    // open (with a member) since t=0.
     const events = mm.tick(20_000);
     expect(events).toEqual([]);
   });
 
   it('starts the timer when a room drops to one active driver', () => {
-    const mm = make();
+    const mm = make(3);
     mm.place('a', at(0), 0);
     mm.place('b', at(0.1), 0);
-    mm.place('c', at(60), 0);
+    mm.place('x', at(0.2), 0); // room1 full (3/3)
+    mm.place('c', at(60), 0); // room1 full -> room2
     mm.place('c2', at(60.1), 0);
-    mm.disconnect('b', 5_000);
+    mm.place('y', at(60.2), 0); // room2 full (3/3)
+    mm.remove('x', 0); // now free room1: 2 active, has space
+    mm.remove('y', 0); // now free room2: 2 active, has space
+    mm.disconnect('b', 5_000); // room1: 1 active (a) — alone since 5_000
     expect(mm.tick(19_999)).toEqual([]);
     mm.tick(20_000);
     expect(mm.roomOf('a')).toBe(mm.roomOf('c'));
@@ -150,15 +214,15 @@ describe('Matchmaker.tick (lone merge)', () => {
 describe('disconnect / reconnect', () => {
   it('ghosts do not count toward capacity', () => {
     const mm = make();
-    for (let i = 0; i < 8; i++) mm.place(`p${i}`, at(i * 0.1), 0);
+    for (let i = 0; i < 4; i++) mm.place(`p${i}`, at(i * 0.1), 0);
     mm.disconnect('p3', 0);
     mm.place('new', at(0.2), 0);
     expect(mm.roomOf('new')).toBe(mm.roomOf('p0'));
-    expect(mm.roomOf('p0')!.members.size).toBe(9);
-    expect(mm.activeCount(mm.roomOf('p0')!)).toBe(8);
+    expect(mm.roomOf('p0')!.members.size).toBe(5);
+    expect(mm.activeCount(mm.roomOf('p0')!)).toBe(4);
   });
 
-  it('reconnects into the old room when it has space', () => {
+  it('reconnects into the old room when it is still the closest with space', () => {
     const mm = make();
     mm.place('a', at(0), 0);
     mm.place('b', at(0.1), 0);
@@ -170,17 +234,41 @@ describe('disconnect / reconnect', () => {
     expect(mm.roomOf('b')).toBe(room);
   });
 
-  it('re-matches on reconnect when the old room filled up', () => {
+  it('re-matches into a brand new room on reconnect when the old room filled up and nothing else is open', () => {
     const mm = make();
     mm.place('p0', at(0), 0);
     mm.place('ghost', at(0), 0);
     mm.disconnect('ghost', 0);
-    for (let i = 1; i < 8; i++) mm.place(`p${i}`, at(i * 0.1), 0);
-    expect(mm.roomOf('p7')).toBe(mm.roomOf('ghost'));
+    for (let i = 1; i < 4; i++) mm.place(`p${i}`, at(i * 0.1), 0);
+    expect(mm.roomOf('p3')).toBe(mm.roomOf('ghost'));
     const old = mm.roomOf('ghost');
     const events = mm.reconnect('ghost', 0);
     expect(events.map((e) => e.type)).toEqual(['left', 'room-created', 'joined']);
+    expect(joinedRoom(events).reason).toBe('reconnect');
     expect(mm.roomOf('ghost')).not.toBe(old);
+  });
+
+  it('reconnect moves into a different, already-open room when the old one filled up while ghosted', () => {
+    const mm = make(2);
+    mm.place('a', at(0), 0);
+    mm.place('b', at(0.1), 0); // room1 full
+    mm.disconnect('b', 0);
+    mm.place('x', at(0.15), 0); // refills room1 -> full again
+    mm.place('c', at(1000), 0); // room1 full -> opens room2, still has space
+    const events = mm.reconnect('b', 0);
+    expect(events.map((e) => e.type)).toEqual(['left', 'joined']);
+    expect(joinedRoom(events).reason).toBe('reconnect');
+    expect(mm.roomOf('b')).toBe(mm.roomOf('c'));
+  });
+
+  it('deletes the old room if the ghost was its last member', () => {
+    const mm = make();
+    mm.place('a', at(0), 0);
+    mm.disconnect('a', 0); // room1: 0 active, 1 ghost
+    mm.place('b', at(1000), 0); // room1 has nobody active -> opens room2
+    const events = mm.reconnect('a', 0);
+    expect(events.map((e) => e.type)).toEqual(['left', 'room-deleted', 'joined']);
+    expect(mm.roomOf('a')).toBe(mm.roomOf('b'));
   });
 
   it('ignores disconnect when already disconnected and reconnect when connected', () => {
@@ -201,16 +289,78 @@ describe('disconnect / reconnect', () => {
   });
 });
 
-describe('remove and naming', () => {
-  it('deletes empty rooms and reuses their number', () => {
+describe('Matchmaker.random', () => {
+  /** capacity 2, three rooms each left with exactly one free seat, plus a fourth room holding the mover. */
+  function threeOpenRoomsPlusGhost() {
+    const mm = make(2);
+    mm.place('a1', at(0), 0);
+    mm.place('a2', at(0.1), 0);
+    mm.place('b1', at(1000), 0);
+    mm.place('b2', at(1000.1), 0);
+    mm.place('c1', at(2000), 0);
+    mm.place('c2', at(2000.1), 0);
+    mm.place('m1', at(3000), 0);
+    mm.place('m2', at(3000.1), 0);
+    mm.remove('a2', 0);
+    mm.remove('b2', 0);
+    mm.remove('c2', 0);
+    mm.disconnect('m1', 0);
+    return { mm, room1: mm.roomOf('a1')!.id, room2: mm.roomOf('b1')!.id, room3: mm.roomOf('c1')!.id };
+  }
+
+  it('is null while connected', () => {
     const mm = make();
     mm.place('a', at(0), 0);
-    mm.place('b', at(20), 0);
+    expect(mm.random('a', 0, () => 0)).toBeNull();
+  });
+
+  it('is null when there is nowhere else open', () => {
+    const mm = make();
+    mm.place('a', at(0), 0);
+    mm.disconnect('a', 0);
+    expect(mm.random('a', 0, () => 0)).toBeNull();
+  });
+
+  it('picks uniformly among open rooms via the injected rng, excluding its own room', () => {
+    const first = threeOpenRoomsPlusGhost();
+    const e1 = joinedRoom(first.mm.random('m1', 0, () => 0)!);
+    expect(e1.reason).toBe('random');
+    expect(e1.roomId).toBe(first.room1);
+
+    const second = threeOpenRoomsPlusGhost();
+    expect(joinedRoom(second.mm.random('m1', 0, () => 0.4)!).roomId).toBe(second.room2);
+
+    const third = threeOpenRoomsPlusGhost();
+    expect(joinedRoom(third.mm.random('m1', 0, () => 0.99)!).roomId).toBe(third.room3);
+  });
+
+  it('never lands back in its own ghost room, and connects', () => {
+    const mm = make(2);
+    mm.place('a', at(0), 0);
+    mm.place('b', at(0.1), 0); // room1 full
+    mm.disconnect('b', 0);
+    mm.place('x', at(0.15), 0); // refills room1 -> full again
+    mm.place('c', at(1000), 0); // room1 full -> opens room2, the only candidate
+    const events = mm.random('b', 0, () => 0)!;
+    expect(events).not.toBeNull();
+    expect(mm.roomOf('b')).toBe(mm.roomOf('c'));
+    expect(mm.roomOf('b')).not.toBe(mm.roomOf('a'));
+  });
+});
+
+describe('remove and naming', () => {
+  it('deletes empty rooms and reuses their number', () => {
+    const mm = make(2);
+    mm.place('a', at(0), 0);
+    mm.place('decoy', at(0.1), 0); // room1 full (2/2)
+    mm.place('b', at(20), 0); // room1 full -> room2
+    mm.place('b2', at(20.1), 0); // room2 full (2/2), so 'c' below can't join it either
     expect(mm.roomOf('b')?.name).toBe('Test #2');
-    const events = mm.remove('a', 0);
+    mm.remove('decoy', 0); // room1 back down to just 'a'
+    const events = mm.remove('a', 0); // room1 now empty
     expect(events.map((e) => e.type)).toEqual(['left', 'room-deleted']);
-    mm.place('c', at(40), 0);
-    expect(mm.roomOf('c')?.name).toBe('Test #1');
+    const c = joinedRoom(mm.place('c', at(40), 0)); // both existing rooms unusable -> new room
+    expect(mm.getRoom(c.roomId)?.name).toBe('Test #1');
   });
 
   it('updates positions used for later matching', () => {

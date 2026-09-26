@@ -1,6 +1,6 @@
 import type { Mode } from './protocol';
 
-export const COMMANDS = ['mute', 'unmute', 'deafen', 'undeafen', 'disconnect', 'connect'] as const;
+export const COMMANDS = ['mute', 'unmute', 'deafen', 'undeafen', 'disconnect', 'connect', 'random'] as const;
 export type Command = (typeof COMMANDS)[number];
 
 export interface VoiceState {
@@ -36,6 +36,10 @@ export function applyCommand(state: VoiceState, command: Command): VoiceState {
       return { ...state, connected: false };
     case 'connect':
       return { ...state, connected: true };
+    case 'random':
+      // Only meaningful while disconnected (World ignores it otherwise); landing
+      // somewhere always reconnects.
+      return { ...state, connected: true };
   }
 }
 
@@ -57,6 +61,7 @@ const PHRASES: Record<Command, readonly string[]> = {
   undeafen: ['undeafen', 'un deafen', 'undeafen me', 'on deafen'],
   disconnect: ['disconnect', 'dis connect', 'disconnect me'],
   connect: ['connect', 'reconnect', 'connect me'],
+  random: ['random', 'random room'],
 };
 
 const PHRASE_TO_COMMAND = new Map<string, Command>(

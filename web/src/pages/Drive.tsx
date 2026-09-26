@@ -1,10 +1,18 @@
-import { colorHex, isTransmitting, type Command } from '@roadies/shared';
+import { colorHex, isTransmitting, type Command, type NoticeCode } from '@roadies/shared';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { CarIcon, HangUpIcon, HeadphonesIcon, MicIcon, PhoneIcon, SpeakerIcon } from '../components/icons';
+import { CarIcon, HangUpIcon, HeadphonesIcon, MicIcon, PhoneIcon, ShuffleIcon, SpeakerIcon } from '../components/icons';
 import type { DriveSession } from '../lib/session';
 import { keepScreenOn } from '../lib/wakelock';
 
 const HEARD_FLASH_MS = 2500;
+const NOTICE_FLASH_MS = 4000;
+
+// Phone-facing copy for the disconnected-screen cards and server notices, kept together
+// here for the i18n pass. The server sends data (driver name/color, room name, whether
+// "random" has anywhere to go, or a notice code) and this component composes the text.
+const NOTICE_TEXT: Record<NoticeCode, string> = {
+  'no-open-rooms': 'No other rooms open right now',
+};
 
 /** Glanceable driving mode: one status line, giant buttons, voice commands. */
 export function Drive({ session }: { session: DriveSession }) {
@@ -27,6 +35,12 @@ export function Drive({ session }: { session: DriveSession }) {
     const t = setTimeout(() => setNow(Date.now()), HEARD_FLASH_MS);
     return () => clearTimeout(t);
   }, [view.heard]);
+  // Re-render to expire the notice flash.
+  useEffect(() => {
+    if (!view.notice) return;
+    const t = setTimeout(() => setNow(Date.now()), NOTICE_FLASH_MS);
+    return () => clearTimeout(t);
+  }, [view.notice]);
 
   const members = room?.members ?? [];
   const others = members.filter((m) => m.id !== myId);
@@ -36,11 +50,19 @@ export function Drive({ session }: { session: DriveSession }) {
   const tone = !state.connected ? 'off' : state.selfDeaf ? 'deaf' : state.selfMute ? 'muted' : 'live';
   const send = (cmd: Command) => session.command(cmd);
 
+  // "connect"'s live context, shared by the hint line and its card below.
+  const closest = view.closest;
+  const connectContext = !closest
+    ? 'You’ll start a new room'
+    : room && closest.roomName === room.name
+      ? `Back to ${closest.roomName}`
+      : `${closest.name} · ${closest.roomName}`;
+
   let title: string;
   let subtitle: string;
   if (!state.connected) {
     title = 'Disconnected';
-    subtitle = 'Listening for “connect”';
+    subtitle = 'Listening for “connect” or “random”';
   } else if (!room) {
     title = 'Finding your jam…';
     subtitle = view.socket === 'open' ? 'Matching you with nearby drivers' : 'Connecting to Roadies';
@@ -51,20 +73,21 @@ export function Drive({ session }: { session: DriveSession }) {
   }
 
   let talkLine: string;
-  if (!state.connected) talkLine = 'Say “connect” to rejoin';
+  if (!state.connected) talkLine = 'Say “connect” or “random” to rejoin';
   else if (talking.length > 0) talkLine = `${talking.map((m) => m.name).join(', ')} ${talking.length > 1 ? 'are' : 'is'} talking`;
   else if (meTalking) talkLine = 'You’re on the air';
   else if (state.selfDeaf) talkLine = 'You can’t hear the room';
   else talkLine = 'Quiet road';
 
   const heardFresh = view.heard && now - view.heard.at < HEARD_FLASH_MS ? view.heard : null;
+  const noticeFresh = view.notice && now - view.notice.at < NOTICE_FLASH_MS ? view.notice : null;
   const hint = heardFresh
     ? heardFresh.source === 'presenter'
       ? `The presenter used “${heardFresh.cmd}”`
       : `✓ Heard “${heardFresh.cmd}”`
     : state.connected
       ? 'Say: mute · unmute · deafen · undeafen · disconnect'
-      : 'Say: connect';
+      : 'Say: connect · random';
 
   return (
     <main className="drive" data-tone={tone}>
@@ -110,44 +133,62 @@ export function Drive({ session }: { session: DriveSession }) {
         </button>
       )}
       {view.error && <p className="notice error">{view.error}</p>}
+      {noticeFresh && !view.error && <p className="notice">{NOTICE_TEXT[noticeFresh.code]}</p>}
 
       <p className={`hint ${heardFresh ? 'flash' : ''}`} data-testid="hint">
         {hint}
       </p>
 
-      <nav className="controls">
-        <button
-          className={`ctl ${state.selfMute || state.selfDeaf ? 'on' : ''}`}
-          aria-pressed={state.selfMute}
-          aria-label={state.selfMute ? 'Unmute' : 'Mute'}
-          disabled={!state.connected}
-          onClick={() => send(state.selfMute || state.selfDeaf ? 'unmute' : 'mute')}
-        >
-          <MicIcon slashed={state.selfMute || state.selfDeaf} />
-          <span>{state.selfMute || state.selfDeaf ? 'Unmute' : 'Mute'}</span>
-        </button>
-        <button
-          className={`ctl ${state.selfDeaf ? 'on' : ''}`}
-          aria-pressed={state.selfDeaf}
-          aria-label={state.selfDeaf ? 'Undeafen' : 'Deafen'}
-          disabled={!state.connected}
-          onClick={() => send(state.selfDeaf ? 'undeafen' : 'deafen')}
-        >
-          <HeadphonesIcon slashed={state.selfDeaf} />
-          <span>{state.selfDeaf ? 'Undeafen' : 'Deafen'}</span>
-        </button>
-        {state.connected ? (
+      {state.connected ? (
+        <nav className="controls">
+          <button
+            className={`ctl ${state.selfMute || state.selfDeaf ? 'on' : ''}`}
+            aria-pressed={state.selfMute}
+            aria-label={state.selfMute ? 'Unmute' : 'Mute'}
+            onClick={() => send(state.selfMute || state.selfDeaf ? 'unmute' : 'mute')}
+          >
+            <MicIcon slashed={state.selfMute || state.selfDeaf} />
+            <span>{state.selfMute || state.selfDeaf ? 'Unmute' : 'Mute'}</span>
+          </button>
+          <button
+            className={`ctl ${state.selfDeaf ? 'on' : ''}`}
+            aria-pressed={state.selfDeaf}
+            aria-label={state.selfDeaf ? 'Undeafen' : 'Deafen'}
+            onClick={() => send(state.selfDeaf ? 'undeafen' : 'deafen')}
+          >
+            <HeadphonesIcon slashed={state.selfDeaf} />
+            <span>{state.selfDeaf ? 'Undeafen' : 'Deafen'}</span>
+          </button>
           <button className="ctl hangup" aria-label="Disconnect" onClick={() => send('disconnect')}>
             <HangUpIcon />
             <span>Disconnect</span>
           </button>
-        ) : (
-          <button className="ctl connect" aria-label="Connect" onClick={() => send('connect')}>
-            <PhoneIcon />
-            <span>Connect</span>
+        </nav>
+      ) : (
+        <nav className="options">
+          <button className="option connect" aria-label="Connect" onClick={() => send('connect')}>
+            <span className="option-cmd">
+              <PhoneIcon />
+              “connect”
+            </span>
+            <span className="option-desc">Join the closest driver</span>
+            <span className="option-context">{connectContext}</span>
           </button>
-        )}
-      </nav>
+          <button
+            className="option random"
+            aria-label="Random"
+            disabled={!view.randomAvailable}
+            onClick={() => send('random')}
+          >
+            <span className="option-cmd">
+              <ShuffleIcon />
+              “random”
+            </span>
+            <span className="option-desc">Jump into any open room, anywhere</span>
+            {!view.randomAvailable && <span className="option-context">{NOTICE_TEXT['no-open-rooms']}</span>}
+          </button>
+        </nav>
+      )}
     </main>
   );
 }
