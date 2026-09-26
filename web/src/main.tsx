@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { demoCar, savedProfile } from './lib/identity';
 import { Join } from './pages/Join';
 import { Setup } from './pages/Setup';
+import { Sounds } from './pages/Sounds';
 import './styles.css';
 
 // The projector's map and QR code libraries never ship to phones.
@@ -20,6 +21,7 @@ function App() {
     );
   }
   if (path === '/setup') return <Setup />;
+  if (path === '/sounds') return <Sounds />;
   if (path === '/demo') {
     return (
       <Join
