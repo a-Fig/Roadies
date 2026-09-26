@@ -6,7 +6,8 @@ export interface ListenerOptions {
   identity: string;
   issueToken: (identity: string, name: string, room: string, opts: { hidden: boolean }) => Promise<string>;
   recognizer: Recognizer;
-  onTranscript: (participantId: string, text: string, info?: UtteranceInfo) => void;
+  /** `heard` is the n-best list for one utterance, best guess first. */
+  onTranscript: (participantId: string, heard: readonly string[], info?: UtteranceInfo) => void;
   onSpeakers: (roomId: string, identities: string[]) => void;
   log?: (msg: string) => void;
 }
@@ -91,7 +92,7 @@ export class ListenerManager {
 
   private async consume(joined: Joined, identity: string, track: RemoteTrack): Promise<void> {
     this.closeSession(joined, identity);
-    const session = this.o.recognizer.open(identity, (text, info) => this.o.onTranscript(identity, text, info));
+    const session = this.o.recognizer.open(identity, (heard, info) => this.o.onTranscript(identity, heard, info));
     joined.sessions.set(identity, session);
     const stream = new AudioStream(track, { sampleRate: this.o.recognizer.sampleRate, numChannels: 1 });
     try {

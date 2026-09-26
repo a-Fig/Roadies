@@ -1,4 +1,7 @@
-/** 16 kHz mono PCM in, final transcripts out. One session per participant track. */
+/**
+ * 16 kHz mono PCM in, final transcripts out. One session per participant track.
+ * Each final is the recognizer's n-best list for one utterance, best guess first.
+ */
 export interface RecognizerSession {
   write(pcm: Int16Array): void;
   close(): void;
@@ -16,7 +19,7 @@ export interface UtteranceInfo {
 
 export interface Recognizer {
   readonly sampleRate: number;
-  open(participantId: string, onFinal: (text: string, info?: UtteranceInfo) => void): RecognizerSession;
+  open(participantId: string, onFinal: (heard: readonly string[], info?: UtteranceInfo) => void): RecognizerSession;
 }
 
 export const SAMPLE_RATE = 16_000;

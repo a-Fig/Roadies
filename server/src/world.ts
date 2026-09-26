@@ -4,7 +4,7 @@ import {
   isTransmitting,
   joinState,
   Matchmaker,
-  parseCommand,
+  parseAlternatives,
   placeName,
   randomCar,
   type CarProfile,
@@ -145,9 +145,9 @@ export class World {
     this.matchmaker.updatePosition(carId, pos);
   }
 
-  /** A final transcript from the command listener. */
-  transcript(carId: string, text: string): Command | null {
-    const cmd = parseCommand(text);
+  /** A final transcript from the command listener (one string, or an n-best list). */
+  transcript(carId: string, heard: string | readonly string[]): Command | null {
+    const cmd = parseAlternatives(typeof heard === 'string' ? [heard] : heard);
     if (cmd) this.command(carId, cmd, 'voice');
     return cmd;
   }

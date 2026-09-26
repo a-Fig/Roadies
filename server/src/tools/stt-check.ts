@@ -5,41 +5,18 @@
  *
  *   npx tsx --env-file=.env server/src/tools/stt-check.ts clips/*.wav
  *
- * A file named like "zira-unmute.wav" is expected to parse as "unmute"; files
- * whose name has no command word ("dont-mute-me", "can-you-hear-me") are
- * expected to parse as nothing.
+ * Name files "<speaker>-<what was said>.wav": "zira-unmute.wav" is expected to
+ * parse as "unmute", "zira-dont-mute-me.wav" as nothing. Trailing digits are
+ * ignored ("tyler-deafen-03.wav"). Audio is sent in real time, as in production.
  */
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { COMMANDS, parseCommand, type Command } from '@roadies/shared';
+import { parseAlternatives, parseCommand, type Command } from '@roadies/shared';
 import { GoogleSpeechRecognizer } from '../recognizer/google';
 import { SAMPLE_RATE } from '../recognizer/types';
+import { readWav } from '../recognizer/wav';
 
 const FRAME = SAMPLE_RATE / 100; // 10 ms
 const NOISE_RMS = 80; // a quiet room through a phone mic
-
-function readWav(file: string): Int16Array {
-  const buf = readFileSync(file);
-  if (buf.toString('ascii', 0, 4) !== 'RIFF') throw new Error(`${file}: not a WAV file`);
-  let at = 12;
-  while (at < buf.length) {
-    const id = buf.toString('ascii', at, at + 4);
-    const size = buf.readUInt32LE(at + 4);
-    if (id === 'fmt ') {
-      const channels = buf.readUInt16LE(at + 10);
-      const rate = buf.readUInt32LE(at + 12);
-      const bits = buf.readUInt16LE(at + 22);
-      if (channels !== 1 || rate !== SAMPLE_RATE || bits !== 16) {
-        throw new Error(`${file}: need 16 kHz mono 16-bit, got ${rate} Hz ${channels} ch ${bits}-bit`);
-      }
-    } else if (id === 'data') {
-      const data = buf.subarray(at + 8, at + 8 + size);
-      return new Int16Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
-    }
-    at += 8 + size + (size % 2);
-  }
-  throw new Error(`${file}: no data chunk`);
-}
 
 /** 1 s of room noise, the clip (over noise), then 1.5 s of room noise. */
 function withRoom(clip: Int16Array): Int16Array {
@@ -54,30 +31,34 @@ function withRoom(clip: Int16Array): Int16Array {
   return out;
 }
 
+/** What the speaker said, from the file name, run through the real parser. */
 function expected(file: string): Command | null {
-  const words = path.basename(file, '.wav').toLowerCase().split(/[-_ ]/);
-  // Longest command word first, so "unmute" wins over "mute".
-  const cmds = [...COMMANDS].sort((a, b) => b.length - a.length);
-  if (words.includes('dont') || words.includes('im') || words.includes('can')) return null;
-  return cmds.find((c) => words.includes(c)) ?? null;
+  const [, ...said] = path.basename(file).replace(/\.wav$/i, '').split(/[-_ ]/);
+  return parseCommand(said.join(' '));
 }
 
 async function check(recognizer: GoogleSpeechRecognizer, file: string) {
-  const heard: string[] = [];
+  const heard: (readonly string[])[] = [];
   let latencyMs = -1;
-  const session = recognizer.open(path.basename(file), (text, info) => {
-    heard.push(text);
+  const session = recognizer.open(path.basename(file), (alternatives, info) => {
+    heard.push(alternatives);
     latencyMs = info?.latencyMs ?? -1;
   });
-  const audio = withRoom(readWav(file));
-  for (let i = 0; i < audio.length; i += FRAME) session.write(audio.subarray(i, i + FRAME));
+  const audio = withRoom(readWav(file, SAMPLE_RATE));
+  const started = Date.now();
+  for (let i = 0, n = 0; i < audio.length; i += FRAME, n++) {
+    session.write(audio.subarray(i, i + FRAME));
+    const ahead = started + n * 10 - Date.now();
+    if (ahead > 0) await new Promise((r) => setTimeout(r, ahead));
+  }
   session.close();
   // Finals arrive shortly after the stream ends.
   for (let waited = 0; waited < 5000 && heard.length === 0; waited += 100) await new Promise((r) => setTimeout(r, 100));
   await new Promise((r) => setTimeout(r, 300));
-  const cmd = heard.length === 1 ? parseCommand(heard[0]!) : null;
+  const cmd = heard.length === 1 ? parseAlternatives(heard[0]!) : null;
   const want = expected(file);
-  return { file: path.basename(file), heard, cmd, want, ok: cmd === want, latencyMs };
+  // Hearing nothing is a failure even for a clip that should not parse.
+  return { file: path.basename(file), heard, cmd, want, ok: heard.length > 0 && cmd === want, latencyMs };
 }
 
 const files = process.argv.slice(2);
@@ -86,12 +67,18 @@ if (files.length === 0) {
   process.exit(2);
 }
 const model = process.env.GOOGLE_STT_MODEL ?? 'command_and_search';
-const recognizer = new GoogleSpeechRecognizer(model, console.warn, true);
+const recognizer = new GoogleSpeechRecognizer(model, { verbose: true });
 console.log(`model: ${model}`);
-const results = await Promise.all(files.map((f) => check(recognizer, f)));
+const settled = await Promise.allSettled(files.map((f) => check(recognizer, f)));
+const results = settled.flatMap((s, i) => {
+  if (s.status === 'fulfilled') return [s.value];
+  console.log(`FAIL ${path.basename(files[i]!)}: ${(s.reason as Error).message}`);
+  return [{ file: path.basename(files[i]!), heard: [], cmd: null, want: null, ok: false, latencyMs: -1 }];
+});
 for (const r of results) {
-  const heard = r.heard.length ? r.heard.map((h) => `"${h}"`).join(' + ') : '(nothing)';
-  console.log(`${r.ok ? 'ok  ' : 'FAIL'} ${r.file.padEnd(28)} ${heard.padEnd(24)} -> ${r.cmd ?? '-'}  (want ${r.want ?? '-'})  ${r.latencyMs} ms`);
+  // Each final's guesses, best first: "a meal" | "unmute" + "..." for a second final.
+  const heard = r.heard.length ? r.heard.map((alts) => alts.map((h) => `"${h}"`).join(' | ')).join(' + ') : '(nothing)';
+  console.log(`${r.ok ? 'ok  ' : 'FAIL'} ${r.file.padEnd(28)} -> ${(r.cmd ?? '-').padEnd(10)} (want ${r.want ?? '-'})  ${r.latencyMs} ms  ${heard}`);
 }
 const failed = results.filter((r) => !r.ok).length;
 const latencies = results.map((r) => r.latencyMs).filter((l) => l >= 0).sort((a, b) => a - b);

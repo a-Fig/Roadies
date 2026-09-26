@@ -81,3 +81,21 @@ export function normalizeUtterance(text: string): string {
 export function parseCommand(text: string): Command | null {
   return PHRASE_TO_COMMAND.get(normalizeUtterance(text)) ?? null;
 }
+
+/**
+ * The command in a recognizer's n-best list (best guess first). The best guess
+ * wins if it is a command. Lower guesses count only when the best guess is one
+ * or two words, so a mishearing like "a meal" can still be "unmute", while
+ * conversation such as "don't mute me" never triggers.
+ */
+export function parseAlternatives(alternatives: readonly string[]): Command | null {
+  const [best, ...rest] = alternatives;
+  if (best === undefined) return null;
+  const cmd = parseCommand(best);
+  if (cmd || normalizeUtterance(best).split(' ').length > 2) return cmd;
+  for (const alt of rest) {
+    const c = parseCommand(alt);
+    if (c) return c;
+  }
+  return null;
+}

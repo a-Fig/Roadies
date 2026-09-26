@@ -29,6 +29,8 @@ export const config = {
   /** Enables /dev/* endpoints (inject transcripts, inspect state). */
   devEndpoints: env.DEV_ENDPOINTS ? env.DEV_ENDPOINTS === '1' : !production,
   logTranscripts: env.LOG_TRANSCRIPTS === '1',
+  /** Save every utterance the speech gate cuts as a WAV in this directory, for tuning. Never in production. */
+  saveUtterances: production ? null : env.SAVE_UTTERANCES || null,
   webDist: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist'),
 };
 

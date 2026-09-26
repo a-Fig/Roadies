@@ -5,6 +5,7 @@ import {
   isHearing,
   isTransmitting,
   joinState,
+  parseAlternatives,
   parseCommand,
   type Command,
   type VoiceState,
@@ -81,5 +82,29 @@ describe('parseCommand', () => {
     '',
   ])('ignores conversation: %j', (text) => {
     expect(parseCommand(text)).toBeNull();
+  });
+});
+
+describe('parseAlternatives (n-best list)', () => {
+  it('takes the best guess when it is a command', () => {
+    expect(parseAlternatives(['mute', 'unmute'])).toBe('mute');
+  });
+
+  it('rescues a short mishearing from a lower guess', () => {
+    expect(parseAlternatives(['a meal', 'unmute', 'a mule'])).toBe('unmute');
+    expect(parseAlternatives(['undefined', 'undeafen'])).toBe('undeafen');
+  });
+
+  it('never looks past conversation', () => {
+    expect(parseAlternatives(["don't mute me", 'mute'])).toBeNull();
+    expect(parseAlternatives(["I'm on mute", 'unmute'])).toBeNull();
+  });
+
+  it('takes the highest-ranked command among lower guesses', () => {
+    expect(parseAlternatives(['mute it', 'mute', 'unmute it', 'unmute'])).toBe('mute');
+  });
+
+  it('handles an empty list', () => {
+    expect(parseAlternatives([])).toBeNull();
   });
 });
