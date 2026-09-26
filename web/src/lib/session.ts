@@ -52,6 +52,14 @@ export class DriveSession {
   private readonly listeners = new Set<() => void>();
   private pos: LatLng | undefined;
   private view: SessionView;
+  /**
+   * A `connect`/`random` we just sent, awaiting the `assigned` it causes (the
+   * server now sends `assigned` before `state` for a move — see world.ts). The
+   * `state` handler already plays the right chime for it (`user_join` /
+   * `user_moved`); this just tells the `assigned` handler not to *also* play
+   * `moved()` for the same move.
+   */
+  private pendingMove: Command | null = null;
 
   constructor(private readonly opts: SessionOptions) {
     this.pos = opts.pos;
@@ -98,6 +106,7 @@ export class DriveSession {
   }
 
   command(cmd: Command): void {
+    if (cmd === 'connect' || cmd === 'random') this.pendingMove = cmd;
     this.socket.send({ t: 'cmd', cmd });
   }
 
@@ -124,7 +133,11 @@ export class DriveSession {
         break;
       case 'assigned': {
         const previous = this.view.room;
-        if (previous && previous.id !== msg.room.id) chimes.moved();
+        // A self-initiated connect/random gets exactly one chime, played by
+        // the `state` handler below (user_join / user_moved) — don't also
+        // play the passive-move `moved()` sound for the same room switch.
+        if (previous && previous.id !== msg.room.id && !this.pendingMove) chimes.moved();
+        this.pendingMove = null;
         this.update({ room: msg.room });
         this.voice
           .join(msg.room.id, msg.livekit, this.view.state)

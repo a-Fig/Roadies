@@ -51,7 +51,7 @@ export function Drive({ session }: { session: DriveSession }) {
   const tone = !state.connected ? 'off' : state.selfDeaf ? 'deaf' : state.selfMute ? 'muted' : 'live';
   const send = (cmd: Command) => session.command(cmd);
 
-  // "connect"'s live context, shared by the hint line and its card below.
+  // "connect"'s live context, shown in its card on the disconnected screen below.
   const closest = view.closest;
   const connectContext = !closest
     ? 'You’ll start a new room'
