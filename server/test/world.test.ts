@@ -1,6 +1,6 @@
-import type { ServerMessage } from '@roadies/shared';
+import type { CarProfile, ServerMessage } from '@roadies/shared';
 import { describe, expect, it } from 'vitest';
-import { World } from '../src/world';
+import { carIdFor, MAX_CARS, World } from '../src/world';
 
 function setup() {
   let now = 1_000_000;
@@ -12,12 +12,17 @@ function setup() {
     rng: () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646,
     issueToken: async (identity, _name, room) => `token:${identity}:${room}`,
     livekitUrl: 'wss://lk.test',
-    listenerIdentity: 'listener',
+    listenerIdentity: 'roadies-listener',
     onRoomCreated: (id) => created.push(id),
     onRoomDeleted: (id) => deleted.push(id),
   });
   const inboxes = new Map<string, ServerMessage[]>();
-  const join = (id: string, extra: { spot?: string; mode?: 'demo' | 'live'; pos?: { lat: number; lng: number } } = {}) => {
+  // `id` here is the secret clientId a phone would send; World only ever
+  // exposes the derived public id (`pub(id)` below) to the outside world.
+  const join = (
+    id: string,
+    extra: { spot?: string; mode?: 'demo' | 'live'; pos?: { lat: number; lng: number }; profile?: CarProfile } = {},
+  ) => {
     const inbox: ServerMessage[] = [];
     inboxes.set(id, inbox);
     const send = (m: ServerMessage) => inbox.push(m);
@@ -26,7 +31,7 @@ function setup() {
         t: 'hello',
         clientId: id,
         mode: extra.mode ?? 'demo',
-        profile: { name: `Car ${id}`, make: 'Civic', color: 'Teal' },
+        profile: extra.profile ?? { name: `Car ${id}`, make: 'Civic', color: 'Teal' },
         spot: extra.spot,
         pos: extra.pos,
       },
@@ -34,6 +39,7 @@ function setup() {
     );
     return send;
   };
+  const pub = carIdFor;
   const last = <T extends ServerMessage['t']>(id: string, t: T) =>
     inboxes
       .get(id)!
@@ -46,7 +52,7 @@ function setup() {
     }
   };
   const flush = () => new Promise((r) => setTimeout(r, 0));
-  return { world, join, last, advance, flush, inboxes, created, deleted };
+  return { world, join, pub, last, advance, flush, inboxes, created, deleted };
 }
 
 describe('World', () => {
@@ -60,8 +66,8 @@ describe('World', () => {
     expect(assigned.room.name).toBe('Hospital Curve #1');
     expect(assigned.livekit).toEqual({
       url: 'wss://lk.test',
-      token: `token:car-00001:${assigned.room.id}`,
-      listenerIdentity: 'listener',
+      token: `token:${t.pub('car-00001')}:${assigned.room.id}`,
+      listenerIdentity: 'roadies-listener',
     });
     expect(t.created).toEqual([assigned.room.id]);
   });
@@ -82,7 +88,7 @@ describe('World', () => {
     t.join('car-aaaaa', { spot: 'sfo' });
     t.join('car-bbbbb', { spot: 'sfo' });
     await t.flush();
-    expect(t.world.transcript('car-aaaaa', 'Mute.')).toBe('mute');
+    expect(t.world.transcript(t.pub('car-aaaaa'), 'Mute.')).toBe('mute');
     expect(t.last('car-aaaaa', 'state')).toEqual({
       t: 'state',
       state: { selfMute: true, selfDeaf: false, connected: true },
@@ -90,14 +96,14 @@ describe('World', () => {
       source: 'voice',
     });
     const roster = t.last('car-bbbbb', 'roster')!;
-    expect(roster.room.members.find((m) => m.id === 'car-aaaaa')?.state.selfMute).toBe(true);
+    expect(roster.room.members.find((m) => m.id === t.pub('car-aaaaa'))?.state.selfMute).toBe(true);
     expect(t.world.snapshot().log[0]).toContain('mute');
   });
 
   it('ignores conversation', () => {
     const t = setup();
     t.join('car-aaaaa');
-    expect(t.world.transcript('car-aaaaa', "please don't mute me")).toBeNull();
+    expect(t.world.transcript(t.pub('car-aaaaa'), "please don't mute me")).toBeNull();
     expect(t.last('car-aaaaa', 'state')).toBeUndefined();
   });
 
@@ -106,11 +112,11 @@ describe('World', () => {
     t.join('car-aaaaa', { spot: 'sfo' });
     t.join('car-bbbbb', { spot: 'sfo' });
     await t.flush();
-    t.world.command('car-aaaaa', 'disconnect', 'voice');
-    expect(t.last('car-bbbbb', 'roster')!.room.members.map((m) => m.id)).toEqual(['car-bbbbb']);
+    t.world.command(t.pub('car-aaaaa'), 'disconnect', 'voice');
+    expect(t.last('car-bbbbb', 'roster')!.room.members.map((m) => m.id)).toEqual([t.pub('car-bbbbb')]);
     expect(t.last('car-aaaaa', 'state')!.state.connected).toBe(false);
-    t.world.command('car-aaaaa', 'connect', 'voice');
-    expect(t.last('car-bbbbb', 'roster')!.room.members.map((m) => m.id)).toEqual(['car-aaaaa', 'car-bbbbb']);
+    t.world.command(t.pub('car-aaaaa'), 'connect', 'voice');
+    expect(t.last('car-bbbbb', 'roster')!.room.members.map((m) => m.id)).toEqual([t.pub('car-aaaaa'), t.pub('car-bbbbb')]);
   });
 
   it('merges a lone commuter after 15 s and hands them a new token', async () => {
@@ -137,17 +143,17 @@ describe('World', () => {
     const send = t.join('car-aaaaa', { spot: 'sfo' });
     await t.flush();
     const room = t.last('car-aaaaa', 'assigned')!.room.id;
-    t.world.disconnected('car-aaaaa', send);
+    t.world.disconnected(t.pub('car-aaaaa'), send);
     t.advance(10_000);
     t.join('car-aaaaa');
     await t.flush();
     expect(t.last('car-aaaaa', 'assigned')!.room.id).toBe(room);
-    t.world.disconnected('car-aaaaa', () => {}); // stale socket closing: ignored
+    t.world.disconnected(t.pub('car-aaaaa'), () => {}); // stale socket closing: ignored
     t.advance(60_000);
-    expect(t.world.getCar('car-aaaaa')).toBeDefined();
-    t.world.disconnected('car-aaaaa', t.world.getCar('car-aaaaa')!.send!);
+    expect(t.world.getCar(t.pub('car-aaaaa'))).toBeDefined();
+    t.world.disconnected(t.pub('car-aaaaa'), t.world.getCar(t.pub('car-aaaaa'))!.send!);
     t.advance(30_000);
-    expect(t.world.getCar('car-aaaaa')).toBeUndefined();
+    expect(t.world.getCar(t.pub('car-aaaaa'))).toBeUndefined();
     expect(t.deleted).toContain(room);
   });
 
@@ -155,9 +161,9 @@ describe('World', () => {
     const t = setup();
     const ids = Array.from({ length: 6 }, (_, i) => `car-pa${i}00`);
     ids.forEach((id) => t.join(id, { spot: 'palo-alto' }));
-    const start = ids.map((id) => t.world.getCar(id)!.motion!.km);
+    const start = ids.map((id) => t.world.getCar(t.pub(id))!.motion!.km);
     t.advance(600_000);
-    const end = ids.map((id) => t.world.getCar(id)!.motion!);
+    const end = ids.map((id) => t.world.getCar(t.pub(id))!.motion!);
     end.forEach((m, i) => {
       expect(m.km).toBeGreaterThanOrEqual(start[i]!);
       expect(m.km).toBeLessThanOrEqual(m.capKm);
@@ -170,7 +176,7 @@ describe('World', () => {
     t.join('car-live1', { mode: 'live' });
     expect(t.last('car-live1', 'error')).toBeDefined();
     t.join('car-live2', { mode: 'live', pos: { lat: 37.7749, lng: -122.4194 } });
-    expect(t.world.getCar('car-live2')?.pos).toEqual({ lat: 37.7749, lng: -122.4194 });
+    expect(t.world.getCar(t.pub('car-live2'))?.pos).toEqual({ lat: 37.7749, lng: -122.4194 });
     expect(t.last('car-live2', 'welcome')?.state.selfMute).toBe(false); // normal mode joins live
   });
 
@@ -179,10 +185,11 @@ describe('World', () => {
     t.join('car-aaaaa');
     const bot = t.world.spawnLoner();
     expect(bot.bot).toBe(true);
+    expect(bot.id).toBe('bot-1'); // bots keep their bot-N id, not a hashed one
     expect(t.world.snapshot().cars).toHaveLength(2);
-    t.world.command('car-aaaaa', 'unmute', 'voice');
+    t.world.command(t.pub('car-aaaaa'), 'unmute', 'voice');
     t.world.muteAll();
-    expect(t.world.getCar('car-aaaaa')!.state.selfMute).toBe(true);
+    expect(t.world.getCar(t.pub('car-aaaaa'))!.state.selfMute).toBe(true);
     expect(t.last('car-aaaaa', 'state')!.source).toBe('presenter');
     t.world.reset();
     expect(t.last('car-aaaaa', 'reset')).toEqual({ t: 'reset' });
@@ -195,13 +202,72 @@ describe('World', () => {
     t.join('car-aaaaa');
     await t.flush();
     const room = t.last('car-aaaaa', 'assigned')!.room.id;
-    t.world.setSpeakers(room, ['car-aaaaa']);
-    expect(t.world.getCar('car-aaaaa')!.speaking).toBe(false); // demo joins muted
-    t.world.command('car-aaaaa', 'unmute', 'voice');
-    t.world.setSpeakers(room, ['car-aaaaa']);
-    expect(t.world.getCar('car-aaaaa')!.speaking).toBe(true);
-    t.world.command('car-aaaaa', 'mute', 'button');
-    t.world.setSpeakers(room, ['car-aaaaa']);
-    expect(t.world.getCar('car-aaaaa')!.speaking).toBe(false);
+    t.world.setSpeakers(room, [t.pub('car-aaaaa')]);
+    expect(t.world.getCar(t.pub('car-aaaaa'))!.speaking).toBe(false); // demo joins muted
+    t.world.command(t.pub('car-aaaaa'), 'unmute', 'voice');
+    t.world.setSpeakers(room, [t.pub('car-aaaaa')]);
+    expect(t.world.getCar(t.pub('car-aaaaa'))!.speaking).toBe(true);
+    t.world.command(t.pub('car-aaaaa'), 'mute', 'button');
+    t.world.setSpeakers(room, [t.pub('car-aaaaa')]);
+    expect(t.world.getCar(t.pub('car-aaaaa'))!.speaking).toBe(false);
+  });
+
+  // ---- security ----
+
+  it('rejects a hello whose clientId is the listener identity', () => {
+    const t = setup();
+    t.join('roadies-listener');
+    expect(t.last('roadies-listener', 'error')?.message).toBeTruthy();
+    expect(t.last('roadies-listener', 'welcome')).toBeUndefined();
+    expect(t.world.snapshot().cars).toHaveLength(0);
+  });
+
+  it('does not let a phone take over another car by sending its public id as clientId', async () => {
+    const t = setup();
+    const victimSend = t.join('car-victim', { spot: 'sfo' });
+    await t.flush();
+    const victimId = t.pub('car-victim');
+
+    // An attacker who learned the victim's public id (from a roster, say)
+    // tries to "become" that car by sending it back as their own clientId.
+    t.join(victimId, { spot: 'sfo' });
+    await t.flush();
+
+    // The victim's car is untouched: same socket, same identity.
+    expect(t.world.getCar(victimId)!.send).toBe(victimSend);
+    // The attacker gets a brand new, unrelated car instead of the victim's.
+    const attackerWelcome = t.last(victimId, 'welcome');
+    expect(attackerWelcome?.id).toBeDefined();
+    expect(attackerWelcome!.id).not.toBe(victimId);
+  });
+
+  it('caps total cars and rejects new hellos once full', () => {
+    const t = setup();
+    for (let i = 0; i < MAX_CARS; i++) t.join(`car-cap-${i}`);
+    expect(t.world.snapshot().cars).toHaveLength(MAX_CARS);
+
+    t.join('car-overflow');
+    expect(t.last('car-overflow', 'error')?.message).toBeTruthy();
+    expect(t.last('car-overflow', 'welcome')).toBeUndefined();
+    expect(t.world.snapshot().cars).toHaveLength(MAX_CARS);
+  });
+
+  it('sanitizes car names: strips markup, keeps unicode letters and simple punctuation', () => {
+    const t = setup();
+    t.join('car-html', { profile: { name: '<script>alert(1)</script>', make: 'Civic', color: 'Teal' } });
+    const name = t.world.getCar(t.pub('car-html'))!.profile.name;
+    expect(name).not.toMatch(/[<>/]/);
+    expect(name).toBe('scriptalert1script');
+
+    t.join('car-uni', { profile: { name: "  Ñoño's Café_1! ", make: 'Civic', color: 'Teal' } });
+    expect(t.world.getCar(t.pub('car-uni'))!.profile.name).toBe("Ñoño's Café_1!");
+  });
+
+  it('falls back to a random car name when the sanitized name is empty', () => {
+    const t = setup();
+    t.join('car-emoji', { profile: { name: '😀😀😀', make: 'Civic', color: 'Teal' } });
+    const name = t.world.getCar(t.pub('car-emoji'))!.profile.name;
+    expect(name.length).toBeGreaterThan(0);
+    expect(name).toMatch(/^[A-Za-z0-9' -]+$/); // a real random car name, not leftover markup
   });
 });
