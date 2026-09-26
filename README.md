@@ -71,6 +71,20 @@ npm run typecheck
 npm run e2e         # Playwright: real Chromium phones + local LiveKit + server
 ```
 
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on
+push to `main`, on `ubuntu-latest` with Node 22:
+
+- **check**: `npm ci`, `npm run typecheck`, `npm test`, `npm run build`.
+- **e2e**: `npm ci`, installs Chromium via Playwright, then `npm run e2e`
+  against a local LiveKit dev server and the app server with `RECOGNIZER=fake`
+  — no secrets or `.env` needed. On failure the HTML report and traces upload
+  as the `playwright-report` artifact.
+
+Both jobs run in parallel to keep wall time down. A new push to the same
+branch/PR cancels the previous run.
+
 ## Deploy (Google Cloud Run)
 
 One always-on instance: all state is in memory, and the command listener runs
@@ -91,3 +105,12 @@ gcloud run deploy roadies --source . --project $PROJECT --region us-west1 \
 ```
 
 Then open `https://<service-url>/presenter?key=<PRESENTER_KEY>` on the projector.
+
+### Custom domain (roadies.afig.dev)
+
+A Cloudflare Worker in `deploy/proxy/` passes `roadies.afig.dev` through to the
+Cloud Run URL (pages, assets and the `/ws` socket; LiveKit audio goes to LiveKit
+Cloud directly). Set `ORIGIN` in `deploy/proxy/wrangler.jsonc` to the service URL,
+then `npx wrangler deploy -c deploy/proxy/wrangler.jsonc` (creates the DNS record
+and certificate). The presenter's QR code uses the page's own origin, so open the
+projector at `https://roadies.afig.dev/presenter?key=...`.

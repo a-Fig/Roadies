@@ -146,6 +146,42 @@ a {
   font-size: 1.05rem;
 }
 
+.live-count {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--header);
+  font-weight: 700;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  min-height: 1.5em;
+}
+
+.live-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--go);
+  animation: live-pulse 2s ease-out infinite;
+}
+
+@keyframes live-pulse {
+  from {
+    box-shadow: 0 0 0 0 rgb(35 165 90 / 0.6);
+  }
+  to {
+    box-shadow: 0 0 0 10px rgb(35 165 90 / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+
 .car-card {
   display: flex;
   align-items: center;

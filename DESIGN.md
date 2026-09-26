@@ -27,9 +27,10 @@ and this doc disagree, fix one of them.
 | Hosting | Node + TypeScript server on **Google Cloud Run** (1 always-on instance, CPU always allocated). Laptop + tunnel as backup. |
 | Join state | Normal mode joins **live** (unmuted), Discord default. Demo mode joins **muted** (you hear the room; say "unmute" to talk), because judges' phones share one table and open mics would feed back. Changed 2026-09-26 in the laptop session. |
 | Phone UI | **Glanceable driving mode**: one huge status line, giant buttons, no member list. |
-| Audio feedback | Discord-style **chimes** (original sounds synthesized with Web Audio). |
+| Audio feedback | **Discord's own voice sounds** (mute, deafen, join, leave, …), so people instantly know them. Taken from Discord's web client for this non-commercial demo (owner's call, 2026-09-26); replace before any public release. |
 | After `disconnect` | Mic keeps listening for `connect` / `random` (screen shows a live preview of each). `connect` re-matches to the closest active driver with a free seat *right now*, same rule as joining — reactivates in place if that's your own (ghost) room. `random` jumps to a uniformly random open room other than your own; only works while disconnected. **Changed 2026-09-26 by the owner.** |
 | Projector | Live map + Discord-style channel list + hidden presenter controls + QR code. |
+| Home page | Shows a live count, e.g. "12 drivers talking": drivers with an open connection who haven't disconnected; bots excluded. |
 | Identity | Demo: random car (e.g. "Teal Civic"). Normal: setup screen to pick car + name. No accounts. |
 | Normal mode | Light but real: setup screen (saved on device) + real GPS matchmaking. |
 | Look | ~90% Discord clone (dark grays, layout, rounded, channel list) with night-highway accents. |
@@ -159,7 +160,10 @@ audio. Disconnect = muted-to-everyone + deaf + removed from the room roster (a
 **Recognition:** the listener subscribes to every participant's audio and feeds
 it to the `Recognizer`. Production uses Google Speech-to-Text streaming with the
 six words boosted as phrase hints; streams are restarted before Google's
-per-stream time limit. Aliases (e.g. "un mute") are normalized. Dev/tests use a
+per-stream time limit. Aliases (e.g. "un mute") are normalized. Google's top 5
+guesses are checked: a lower guess counts only when the best guess is one or two
+words, so conversation never triggers. A few observed mishearings (e.g.
+"Stephan" for deafen) are parse-only aliases, never sent as phrase hints. Dev/tests use a
 `FakeRecognizer` fed by `POST /dev/say`.
 
 Privacy note for the pitch: audio reaches our server for command detection;
@@ -213,8 +217,11 @@ nothing is stored.
 
 ## 8. Audio cues
 
-Original Discord-like chimes synthesized in the browser: mute, unmute, deafen,
-undeafen, disconnect, connect, someone joined, someone left.
+Discord's own sound files (`web/public/audio/*.mp3`, from Discord's web client),
+decoded once and played through Web Audio: mute, unmute, deafen, undeafen,
+disconnect; connect and someone joining use Discord's join sound, someone
+leaving its leave sound, being moved to another room its "moved" sound.
+Audition them at `/sounds`.
 
 ## 9. Projector (`/presenter?key=…`)
 

@@ -1,0 +1,9 @@
+{
+  // Serves Roadies at https://roadies.afig.dev (deploy: npx wrangler deploy -c deploy/proxy/wrangler.jsonc)
+  "name": "roadies-proxy",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "routes": [{ "pattern": "roadies.afig.dev", "custom_domain": true }],
+  "vars": { "ORIGIN": "https://roadies-123326946878.us-west1.run.app" }
+}

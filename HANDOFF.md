@@ -80,7 +80,7 @@ Never exercised, so expect work here:
    on. Note: over a tunnel the `/dev/*` endpoints are public, which is fine
    for rehearsal but not for the real demo.
 5. **Deploy.** Follow README "Deploy". Keep exactly one instance. Set
-   `PRESENTER_KEY`. Check `/healthz`, `/presenter?key=…`, and that the QR code
+   `PRESENTER_KEY`. Check `/health`, `/presenter?key=…`, and that the QR code
    points at the deployed `/demo` (use `?join=` to override it).
 6. **Rehearse** against the deployed URL:
    `npm run fake-phones -- 12 "" https://<service-url>` fills the rooms. Walk

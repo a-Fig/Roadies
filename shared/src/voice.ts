@@ -64,14 +64,26 @@ const PHRASES: Record<Command, readonly string[]> = {
   random: ['random', 'random room'],
 };
 
+/**
+ * Mishearings from real-voice testing, accepted as the command but not sent as
+ * recognizer hints (boosting them would only make them likelier). Each one
+ * means saying just that word triggers the command, so add only what the data
+ * shows repeatedly.
+ */
+const MISHEARINGS: Partial<Record<Command, readonly string[]>> = {
+  // 2026-09-26: "deafen" came back as "Stephan" / "Stefan" in two real-voice
+  // sessions (best guess once, n-best once) and in the TTS n-best lists.
+  deafen: ['stephan', 'stefan'],
+};
+
 const PHRASE_TO_COMMAND = new Map<string, Command>(
-  Object.entries(PHRASES).flatMap(([cmd, phrases]) =>
+  [...Object.entries(PHRASES), ...Object.entries(MISHEARINGS)].flatMap(([cmd, phrases]) =>
     phrases.map((p) => [p, cmd as Command] as const),
   ),
 );
 
-/** All phrases, for boosting the speech recognizer. */
-export const COMMAND_PHRASES: readonly string[] = [...PHRASE_TO_COMMAND.keys()];
+/** The real phrases (not mishearings), for boosting the speech recognizer. */
+export const COMMAND_PHRASES: readonly string[] = Object.values(PHRASES).flat();
 
 export function normalizeUtterance(text: string): string {
   return text

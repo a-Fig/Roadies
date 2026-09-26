@@ -3,6 +3,11 @@
 FROM node:22-slim
 WORKDIR /app
 
+# The listener's LiveKit SDK (Rust core) verifies TLS against the OS root
+# certificates, which the slim image lacks: without this it cannot reach
+# LiveKit Cloud and voice commands silently stop working.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates   && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json ./
 COPY shared/package.json shared/package.json
 COPY server/package.json server/package.json

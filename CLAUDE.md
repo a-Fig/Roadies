@@ -44,7 +44,7 @@ npm run build            # Vite build into web/dist (the server serves it)
 
 **Protocol**: every message type is in `shared/src/protocol.ts`; change both sides together. The `shared` package is consumed as TypeScript source (its `exports` points at `src/index.ts`); there is no build step for it.
 
-**Web** (`web/src`, React + Vite, path-based routing in `main.tsx`): `/demo` (random car, `?spot=` override), `/` → `/setup` (normal mode, real GPS), `/presenter?key=` (projector: lazy-loaded so Leaflet/QR never ship to phones). `DriveSession` (`lib/session.ts`) glues the socket, `VoiceClient` and chimes, and is exposed as `window.__roadies` for e2e tests. There is deliberately no `StrictMode`: its dev double-mount tears down the live voice session. Car identity is per browser tab (`sessionStorage`), so several tabs act as several cars. The projector uses Esri's dark canvas tiles because CARTO's dark tiles now require an API key.
+**Web** (`web/src`, React + Vite, path-based routing in `main.tsx`): `/demo` (random car, `?spot=` override), `/` → `/setup` (normal mode, real GPS), `/presenter?key=` (projector: lazy-loaded so Leaflet/QR never ship to phones), `/sounds` (unlinked page to audition the sounds). The sounds are Discord's own mp3s in `web/public/audio/`, played by `lib/chimes.ts`. `DriveSession` (`lib/session.ts`) glues the socket, `VoiceClient` and chimes, and is exposed as `window.__roadies` for e2e tests. There is deliberately no `StrictMode`: its dev double-mount tears down the live voice session. Car identity is per browser tab (`sessionStorage`), so several tabs act as several cars. The projector uses Esri's dark canvas tiles because CARTO's dark tiles now require an API key.
 
 ## Deployment
 

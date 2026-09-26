@@ -1,6 +1,7 @@
 import { colorHex, isTransmitting, type Command, type NoticeCode } from '@roadies/shared';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { CarIcon, HangUpIcon, HeadphonesIcon, MicIcon, PhoneIcon, ShuffleIcon, SpeakerIcon } from '../components/icons';
+import { unlockAudio } from '../lib/chimes';
 import type { DriveSession } from '../lib/session';
 import { keepScreenOn } from '../lib/wakelock';
 
@@ -90,7 +91,8 @@ export function Drive({ session }: { session: DriveSession }) {
       : 'Say: connect · random';
 
   return (
-    <main className="drive" data-tone={tone}>
+    // Any tap re-unlocks audio: iOS suspends it after a lock screen or phone call.
+    <main className="drive" data-tone={tone} onPointerDown={unlockAudio}>
       <header className="drive-top">
         <div className={`voice-status ${view.voiceConnected && state.connected ? 'ok' : ''}`}>
           <span className="signal" aria-hidden="true">
