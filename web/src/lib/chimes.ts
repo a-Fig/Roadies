@@ -16,6 +16,8 @@ const FILES: Record<Chime, string> = {
   join: 'user_join',
   leave: 'user_leave',
   moved: 'user_moved',
+  // Jumping to a random room sounds like being moved.
+  random: 'user_moved',
 };
 
 const VOLUME = 0.6;

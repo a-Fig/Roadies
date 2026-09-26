@@ -62,6 +62,10 @@ describe('voice state (Discord semantics)', () => {
   it('keeps mute and deafen across a disconnect', () => {
     expect(run('mute', 'disconnect', 'connect').selfMute).toBe(true);
   });
+
+  it('random reconnects, like connect', () => {
+    expect(run('disconnect', 'random').connected).toBe(true);
+  });
 });
 
 describe('parseCommand', () => {
@@ -76,6 +80,9 @@ describe('parseCommand', () => {
     ['disconnect', 'disconnect'],
     ['connect', 'connect'],
     ['Reconnect', 'connect'],
+    ['random', 'random'],
+    ['Random.', 'random'],
+    ['random room', 'random'],
   ])('%j -> %s', (text, cmd) => {
     expect(parseCommand(text)).toBe(cmd);
   });
@@ -86,6 +93,7 @@ describe('parseCommand', () => {
     'mute mute',
     'I am connecting now',
     'this traffic is terrible',
+    "that's so random",
     '',
   ])('ignores conversation: %j', (text) => {
     expect(parseCommand(text)).toBeNull();

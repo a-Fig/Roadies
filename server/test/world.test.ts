@@ -82,14 +82,14 @@ describe('World', () => {
     expect(t.created).toEqual([assigned.room.id]);
   });
 
-  it('overfills Hospital Curve with the opening wave: 8 + 3', async () => {
+  it('overfills Hospital Curve with the opening wave: 4 + 2', async () => {
     const t = setup();
-    for (let i = 0; i < 11; i++) t.join(`car-${String(i).padStart(5, '0')}`);
+    for (let i = 0; i < 6; i++) t.join(`car-${String(i).padStart(5, '0')}`);
     await t.flush();
     const rooms = t.world.snapshot().rooms;
     expect(rooms.map((r) => [r.name, r.activeCount])).toEqual([
-      ['Hospital Curve #1', 8],
-      ['Hospital Curve #2', 3],
+      ['Hospital Curve #1', 4],
+      ['Hospital Curve #2', 2],
     ]);
   });
 
@@ -185,13 +185,119 @@ describe('World', () => {
     expect(t.last('car-bbbbb', 'roster')!.room.members.map((m) => m.id)).toEqual([t.pub('car-aaaaa'), t.pub('car-bbbbb')]);
   });
 
+  it('resends the closest preview to a reconnecting socket even when nothing has changed', async () => {
+    const t = setup();
+    t.join('car-aaaaa', { spot: 'sfo' });
+    t.join('car-bbbbb', { spot: 'sfo' });
+    await t.flush();
+    t.world.command(t.pub('car-aaaaa'), 'disconnect', 'voice');
+    const firstPreview = t.last('car-aaaaa', 'closest')!;
+    expect(firstPreview.match?.roomName).toBeDefined();
+
+    // Simulate a page reload: the old socket drops, then a fresh `hello`
+    // arrives for the same car while it's still disconnected. The dedupe key
+    // recorded against the old socket must not suppress this — genuinely
+    // never-seen-by-this-socket — preview.
+    t.world.disconnected(t.pub('car-aaaaa'), t.world.getCar(t.pub('car-aaaaa'))!.send!);
+    t.join('car-aaaaa'); // resumes the existing car on a brand-new inbox
+    const secondPreview = t.last('car-aaaaa', 'closest');
+    expect(secondPreview).toEqual(firstPreview);
+  });
+
+  it('does not resend the closest preview on every tick when nothing has changed', async () => {
+    const t = setup();
+    t.join('car-aaaaa', { spot: 'sfo' });
+    t.join('car-bbbbb', { spot: 'sfo' });
+    await t.flush();
+    t.world.command(t.pub('car-aaaaa'), 'disconnect', 'voice');
+    const countAfterDisconnect = t.inboxes.get('car-aaaaa')!.filter((m) => m.t === 'closest').length;
+    t.advance(5_000);
+    const countAfterTicks = t.inboxes.get('car-aaaaa')!.filter((m) => m.t === 'closest').length;
+    expect(countAfterTicks).toBe(countAfterDisconnect);
+  });
+
+  it('ignores "random" while connected: no state change, no log, stays put', async () => {
+    const t = setup();
+    t.join('car-aaaaa', { spot: 'sfo' });
+    await t.flush();
+    const logLenBefore = t.world.snapshot().log.length;
+    t.world.command(t.pub('car-aaaaa'), 'random', 'voice');
+    expect(t.last('car-aaaaa', 'state')).toBeUndefined();
+    expect(t.world.snapshot().log.length).toBe(logLenBefore);
+    expect(t.world.getCar(t.pub('car-aaaaa'))!.state.connected).toBe(true);
+  });
+
+  it('sends a no-open-rooms notice when "random" has nowhere to go, and stays disconnected', async () => {
+    const t = setup();
+    t.join('car-aaaaa', { spot: 'sfo' }); // alone: the only room is its own
+    await t.flush();
+    t.world.command(t.pub('car-aaaaa'), 'disconnect', 'voice');
+    t.world.command(t.pub('car-aaaaa'), 'random', 'voice');
+    expect(t.last('car-aaaaa', 'notice')).toEqual({ t: 'notice', code: 'no-open-rooms' });
+    expect(t.world.getCar(t.pub('car-aaaaa'))!.state.connected).toBe(false);
+  });
+
+  it('a "random" move issues a fresh token for the new room, after the state update', async () => {
+    const t = setup();
+    t.join('car-a1', { spot: 'sfo' });
+    t.join('car-a2', { spot: 'sfo' });
+    t.join('car-a3', { spot: 'sfo' });
+    t.join('car-a4', { spot: 'sfo' }); // SFO full (4/4)
+    t.join('car-b1', { spot: 'palo-alto' }); // SFO full -> opens its own room, has space
+    await t.flush();
+    const oldRoom = t.last('car-a1', 'assigned')!.room.id;
+
+    t.world.command(t.pub('car-a1'), 'disconnect', 'voice');
+    t.world.command(t.pub('car-a1'), 'random', 'voice');
+    await t.flush();
+
+    const moved = t.last('car-a1', 'assigned')!;
+    expect(moved.room.id).not.toBe(oldRoom);
+    expect(moved.livekit.token).toBe(`token:${t.pub('car-a1')}:${moved.room.id}`);
+    const state = t.last('car-a1', 'state')!;
+    expect(state.cmd).toBe('random');
+
+    // The `assigned` for the new room must reach the phone before the `state`
+    // that flips it back to connected/transmitting (finding 4): otherwise the
+    // phone briefly opens its mic to, and hears, the room it just left.
+    const inbox = t.inboxes.get('car-a1')!;
+    expect(inbox.indexOf(state)).toBeGreaterThan(inbox.lastIndexOf(moved));
+  });
+
+  it('a "connect" that moves rooms (old one is full again) issues a fresh token', async () => {
+    const t = setup();
+    t.join('car-a1', { spot: 'sfo' });
+    t.join('car-a2', { spot: 'sfo' });
+    t.join('car-a3', { spot: 'sfo' });
+    t.join('car-a4', { spot: 'sfo' }); // SFO full (4/4)
+    t.join('car-b1', { spot: 'palo-alto' }); // SFO full -> opens its own room, has space
+    await t.flush();
+    const oldRoom = t.last('car-a1', 'assigned')!.room.id;
+
+    t.world.command(t.pub('car-a1'), 'disconnect', 'voice'); // SFO: 3 active, still has a seat
+    t.join('car-a5', { spot: 'sfo' }); // refills SFO to 4/4, so reconnect can't stay put
+    await t.flush();
+    t.world.command(t.pub('car-a1'), 'connect', 'voice');
+    await t.flush();
+
+    const moved = t.last('car-a1', 'assigned')!;
+    expect(moved.room.id).not.toBe(oldRoom);
+    expect(moved.room.id).toBe(t.last('car-b1', 'assigned')!.room.id);
+    expect(moved.livekit.token).toBe(`token:${t.pub('car-a1')}:${moved.room.id}`);
+  });
+
   it('merges a lone commuter after 15 s and hands them a new token', async () => {
     const t = setup();
+    // Rooms hold 4: fill San Jose first, so the loner is forced to open its
+    // own room (any-distance placement would otherwise pull it straight in).
     t.join('car-aaaaa', { spot: 'san-jose' });
     t.join('car-bbbbb', { spot: 'san-jose' });
-    t.join('car-loner', { spot: 'loner' });
+    t.join('car-ccccc', { spot: 'san-jose' });
+    t.join('car-ddddd', { spot: 'san-jose' }); // San Jose room full (4/4)
+    t.join('car-loner', { spot: 'loner' }); // full -> loner opens its own room, alone
     await t.flush();
     const lonerRoom = t.last('car-loner', 'assigned')!.room.id;
+    t.world.command(t.pub('car-ddddd'), 'disconnect', 'voice'); // free a seat, still 3 active
     t.advance(14_000);
     await t.flush();
     expect(t.last('car-loner', 'assigned')!.room.id).toBe(lonerRoom);
@@ -199,7 +305,7 @@ describe('World', () => {
     await t.flush();
     const merged = t.last('car-loner', 'assigned')!;
     expect(merged.room.name).toBe('San Jose 101/880 #1');
-    expect(merged.room.members).toHaveLength(3);
+    expect(merged.room.members).toHaveLength(4);
     expect(t.deleted).toContain(lonerRoom);
     expect(t.world.snapshot().log.some((l) => l.includes('merged into San Jose'))).toBe(true);
   });

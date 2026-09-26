@@ -1,7 +1,7 @@
 import { LANGS, type Lang } from './lang';
 import type { Mode } from './protocol';
 
-export const COMMANDS = ['mute', 'unmute', 'deafen', 'undeafen', 'disconnect', 'connect'] as const;
+export const COMMANDS = ['mute', 'unmute', 'deafen', 'undeafen', 'disconnect', 'connect', 'random'] as const;
 export type Command = (typeof COMMANDS)[number];
 
 export interface VoiceState {
@@ -37,6 +37,10 @@ export function applyCommand(state: VoiceState, command: Command): VoiceState {
       return { ...state, connected: false };
     case 'connect':
       return { ...state, connected: true };
+    case 'random':
+      // Only meaningful while disconnected (World ignores it otherwise); landing
+      // somewhere always reconnects.
+      return { ...state, connected: true };
   }
 }
 
@@ -63,6 +67,7 @@ export const PHRASES: Record<Lang, Record<Command, readonly string[]>> = {
     undeafen: ['undeafen', 'un deafen', 'undeafen me', 'on deafen'],
     disconnect: ['disconnect', 'dis connect', 'disconnect me'],
     connect: ['connect', 'reconnect', 'connect me'],
+    random: ['random', 'random room'],
   },
   fr: {
     mute: ['coupe le micro', 'couper le micro', 'micro coupé', 'muet'],
@@ -71,6 +76,7 @@ export const PHRASES: Record<Lang, Record<Command, readonly string[]>> = {
     undeafen: ['remets le son', 'remettre le son', 'active le son', 'rallume le son', 'enlève la sourdine'],
     disconnect: ['déconnexion', 'déconnecte-moi', 'déconnecter'],
     connect: ['connexion', 'connecte-moi', 'connecter', 'reconnecter', 'reconnexion'],
+    random: ['au hasard', 'aléatoire'],
   },
   es: {
     mute: ['apaga el micro', 'apaga el micrófono', 'silencio', 'silenciar', 'silénciame', 'mutear'],
@@ -79,6 +85,7 @@ export const PHRASES: Record<Lang, Record<Command, readonly string[]>> = {
     undeafen: ['prende el sonido', 'enciende el sonido', 'activa el sonido', 'dejar de ensordecer'],
     disconnect: ['desconectar', 'desconéctame'],
     connect: ['conectar', 'conéctame', 'reconectar'],
+    random: ['al azar', 'aleatorio'],
   },
   vi: {
     mute: ['tắt mic', 'tắt micro', 'tắt tiếng'],
@@ -87,6 +94,7 @@ export const PHRASES: Record<Lang, Record<Command, readonly string[]>> = {
     undeafen: ['bật loa', 'bật âm thanh', 'mở loa'],
     disconnect: ['ngắt kết nối', 'thoát'],
     connect: ['kết nối', 'kết nối lại', 'vào lại'],
+    random: ['ngẫu nhiên'],
   },
 };
 

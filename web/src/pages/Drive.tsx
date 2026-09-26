@@ -1,15 +1,17 @@
 import { colorHex, isTransmitting, sayPhrase, type Command, type Lang } from '@roadies/shared';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { CarIcon, HangUpIcon, HeadphonesIcon, MicIcon, PhoneIcon, SpeakerIcon } from '../components/icons';
+import { CarIcon, HangUpIcon, HeadphonesIcon, MicIcon, PhoneIcon, ShuffleIcon, SpeakerIcon } from '../components/icons';
 import { unlockAudio } from '../lib/chimes';
 import { strings } from '../lib/i18n';
 import type { DriveSession } from '../lib/session';
 import { keepScreenOn } from '../lib/wakelock';
 
 const HEARD_FLASH_MS = 2500;
+const NOTICE_FLASH_MS = 4000;
 
-/** What the hint strip tells you to say while connected (connect is the only command while not). */
+/** What the hint strip tells you to say: mute/etc while connected, connect/random while not. */
 const HINTED: Command[] = ['mute', 'unmute', 'deafen', 'undeafen', 'disconnect'];
+const HINTED_DISCONNECTED: Command[] = ['connect', 'random'];
 
 /** A button label; a word longer than "Disconnect" ("Déconnexion") gets the smaller `long` size. */
 function Label({ text }: { text: string }) {
@@ -41,6 +43,12 @@ export function Drive({ session, lang }: { session: DriveSession; lang: Lang }) 
     const t = setTimeout(() => setNow(Date.now()), HEARD_FLASH_MS);
     return () => clearTimeout(t);
   }, [view.heard]);
+  // Re-render to expire the notice flash.
+  useEffect(() => {
+    if (!view.notice) return;
+    const t = setTimeout(() => setNow(Date.now()), NOTICE_FLASH_MS);
+    return () => clearTimeout(t);
+  }, [view.notice]);
 
   const members = room?.members ?? [];
   const others = members.filter((m) => m.id !== myId);
@@ -50,11 +58,16 @@ export function Drive({ session, lang }: { session: DriveSession; lang: Lang }) 
   const tone = !state.connected ? 'off' : state.selfDeaf ? 'deaf' : state.selfMute ? 'muted' : 'live';
   const send = (cmd: Command) => session.command(cmd);
 
+  // "connect"'s live context, shown in its card on the disconnected screen below.
+  // Kept to a name and a room — glanceable, not a sentence (owner rule).
+  const closest = view.closest;
+  const connectContext = closest ? `${closest.name} · ${closest.roomName}` : t.newRoom;
+
   let title: string;
   let subtitle: string;
   if (!state.connected) {
     title = t.disconnected;
-    subtitle = t.listeningFor(say('connect'));
+    subtitle = t.listeningFor(`${say('connect')} ${t.or} ${say('random')}`);
   } else if (!room) {
     title = t.finding;
     subtitle = view.socket === 'open' ? t.matching : t.connecting;
@@ -65,18 +78,19 @@ export function Drive({ session, lang }: { session: DriveSession; lang: Lang }) 
   }
 
   let talkLine: string;
-  if (!state.connected) talkLine = t.sayToRejoin(say('connect'));
+  if (!state.connected) talkLine = t.sayToRejoin(`${say('connect')} ${t.or} ${say('random')}`);
   else if (talking.length > 0) talkLine = t.talking(talking.map((m) => m.name));
   else if (meTalking) talkLine = t.onAir;
   else if (state.selfDeaf) talkLine = t.cantHear;
   else talkLine = t.quiet;
 
   const heardFresh = view.heard && now - view.heard.at < HEARD_FLASH_MS ? view.heard : null;
+  const noticeFresh = view.notice && now - view.notice.at < NOTICE_FLASH_MS ? view.notice : null;
   const hint = heardFresh
     ? heardFresh.source === 'presenter'
       ? t.presenterUsed(say(heardFresh.cmd))
       : t.heard(say(heardFresh.cmd))
-    : `${t.say} ${(state.connected ? HINTED : (['connect'] as const)).map((cmd) => sayPhrase(lang, cmd)).join(' · ')}`;
+    : `${t.say} ${(state.connected ? HINTED : HINTED_DISCONNECTED).map((cmd) => sayPhrase(lang, cmd)).join(' · ')}`;
 
   return (
     // Any tap re-unlocks audio: iOS suspends it after a lock screen or phone call.
@@ -123,44 +137,60 @@ export function Drive({ session, lang }: { session: DriveSession; lang: Lang }) 
         </button>
       )}
       {view.error && <p className="notice error">{view.error}</p>}
+      {noticeFresh && !view.error && <p className="notice">{t.notices[noticeFresh.code]}</p>}
 
       <p className={`hint ${heardFresh ? 'flash' : ''}`} data-testid="hint">
         {hint}
       </p>
 
-      <nav className="controls">
-        <button
-          className={`ctl ${state.selfMute || state.selfDeaf ? 'on' : ''}`}
-          aria-pressed={state.selfMute}
-          aria-label={state.selfMute ? t.unmute : t.mute}
-          disabled={!state.connected}
-          onClick={() => send(state.selfMute || state.selfDeaf ? 'unmute' : 'mute')}
-        >
-          <MicIcon slashed={state.selfMute || state.selfDeaf} />
-          <Label text={state.selfMute || state.selfDeaf ? t.unmute : t.mute} />
-        </button>
-        <button
-          className={`ctl ${state.selfDeaf ? 'on' : ''}`}
-          aria-pressed={state.selfDeaf}
-          aria-label={state.selfDeaf ? t.undeafen : t.deafen}
-          disabled={!state.connected}
-          onClick={() => send(state.selfDeaf ? 'undeafen' : 'deafen')}
-        >
-          <HeadphonesIcon slashed={state.selfDeaf} />
-          <Label text={state.selfDeaf ? t.undeafen : t.deafen} />
-        </button>
-        {state.connected ? (
+      {state.connected ? (
+        <nav className="controls">
+          <button
+            className={`ctl ${state.selfMute || state.selfDeaf ? 'on' : ''}`}
+            aria-pressed={state.selfMute}
+            aria-label={state.selfMute ? t.unmute : t.mute}
+            onClick={() => send(state.selfMute || state.selfDeaf ? 'unmute' : 'mute')}
+          >
+            <MicIcon slashed={state.selfMute || state.selfDeaf} />
+            <Label text={state.selfMute || state.selfDeaf ? t.unmute : t.mute} />
+          </button>
+          <button
+            className={`ctl ${state.selfDeaf ? 'on' : ''}`}
+            aria-pressed={state.selfDeaf}
+            aria-label={state.selfDeaf ? t.undeafen : t.deafen}
+            onClick={() => send(state.selfDeaf ? 'undeafen' : 'deafen')}
+          >
+            <HeadphonesIcon slashed={state.selfDeaf} />
+            <Label text={state.selfDeaf ? t.undeafen : t.deafen} />
+          </button>
           <button className="ctl hangup" aria-label={t.disconnect} onClick={() => send('disconnect')}>
             <HangUpIcon />
             <Label text={t.disconnect} />
           </button>
-        ) : (
-          <button className="ctl connect" aria-label={t.connect} onClick={() => send('connect')}>
-            <PhoneIcon />
-            <Label text={t.connect} />
+        </nav>
+      ) : (
+        <nav className="options">
+          <button className="option connect" aria-label={t.connect} onClick={() => send('connect')}>
+            <span className="option-cmd">
+              <PhoneIcon />
+              {say('connect')}
+            </span>
+            <span className="option-context">{connectContext}</span>
           </button>
-        )}
-      </nav>
+          <button
+            className="option random"
+            aria-label={t.random}
+            disabled={!view.randomAvailable}
+            onClick={() => send('random')}
+          >
+            <span className="option-cmd">
+              <ShuffleIcon />
+              {say('random')}
+            </span>
+            {!view.randomAvailable && <span className="option-context">{t.notices['no-open-rooms']}</span>}
+          </button>
+        </nav>
+      )}
     </main>
   );
 }

@@ -206,30 +206,60 @@ test('buttons do the same as voice commands', async ({ browser }) => {
   await expect(a.locator('.status-title')).toHaveText('Redwood City #1');
 });
 
+test('tapping the "random" card jumps to a different open room', async ({ browser }) => {
+  // Fill SFO to capacity so the next phones open a genuinely separate room —
+  // any-distance joining would otherwise fold everyone into one room.
+  const a1 = await phone(browser, 'sfo');
+  await phone(browser, 'sfo');
+  await phone(browser, 'sfo');
+  await phone(browser, 'sfo');
+  const b1 = await phone(browser, 'palo-alto');
+  await phone(browser, 'palo-alto');
+
+  await a1.getByRole('button', { name: 'Disconnect' }).click();
+  await expect(a1.locator('.status-title')).toHaveText('Disconnected');
+  // SFO still has two other active members, so "random" must skip it and offer Palo Alto.
+  await expect(a1.getByRole('button', { name: 'Random' })).toBeEnabled();
+
+  await a1.getByRole('button', { name: 'Random' }).click();
+  await expect(a1.locator('.status-title')).toHaveText('Palo Alto #1');
+  await expect(b1.locator('.status-sub')).toHaveText('3 roadies in this room');
+});
+
 test('a lone commuter is merged into the nearest open room after 15 seconds', async ({ browser }) => {
   test.setTimeout(90_000);
+  // Rooms hold 4 and joining is "closest room with space, any distance", so San Jose
+  // must be full before the loner below can be forced into a room of their own.
   const a = await phone(browser, 'san-jose');
   await phone(browser, 'san-jose');
+  await phone(browser, 'san-jose');
+  const d = await phone(browser, 'san-jose');
   const loner = await phone(browser, 'loner');
   await expect(loner.locator('.status-sub')).toHaveText('Just you so far — we’ll find you company');
+  // Free a seat in San Jose — but not down to exactly one active member, so it doesn't
+  // start its own alone-timer — giving the loner somewhere to be merged into.
+  await d.getByRole('button', { name: 'Disconnect' }).click();
   await expect(loner.locator('.status-title')).toHaveText('San Jose 101/880 #1', { timeout: 30_000 });
-  await expect(loner.locator('.status-sub')).toHaveText('3 roadies in this room');
-  await expect(a.locator('.status-sub')).toHaveText('3 roadies in this room');
-  await expect.poll(() => subscribed(loner), { timeout: 20_000 }).toBe(2);
+  await expect(loner.locator('.status-sub')).toHaveText('4 roadies in this room');
+  await expect(a.locator('.status-sub')).toHaveText('4 roadies in this room');
+  await expect.poll(() => subscribed(loner), { timeout: 20_000 }).toBe(3);
 });
 
 test('the projector shows rooms, members and cars', async ({ browser, request }) => {
   const a = await phone(browser, 'hospital-curve');
   await phone(browser, 'hospital-curve');
+  // Joining is "closest active room with a free seat, any distance": with Hospital
+  // Curve #1 sitting at 2/4, this San Mateo phone lands in that same room rather
+  // than opening its own, so there's still only one room until it fills up.
   await phone(browser, 'san-mateo');
   await say(request, await myId(a), 'mute');
 
   const context = await newContext(browser, { viewport: { width: 1600, height: 900 } });
   const presenter = await context.newPage();
   await presenter.goto(`${BASE}/presenter?key=demo&admin`);
-  await expect(presenter.locator('.channel-name')).toHaveCount(2);
+  await expect(presenter.locator('.channel-name')).toHaveCount(1);
   await expect(presenter.locator('.channel-name').first()).toContainText('Hospital Curve #1');
-  await expect(presenter.locator('.channel-name').first()).toContainText('2/8');
+  await expect(presenter.locator('.channel-name').first()).toContainText('3/4');
   await expect(presenter.locator('.member')).toHaveCount(3);
   await expect(presenter.locator('.car-dot')).toHaveCount(3);
   await expect(presenter.locator('.qr-card img')).toBeVisible();

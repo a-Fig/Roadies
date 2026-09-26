@@ -541,6 +541,60 @@ a {
   background: var(--go-strong);
 }
 
+.options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.option {
+  min-height: 116px;
+  border-radius: 22px;
+  background: var(--bg-button);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 5px;
+  padding: 14px 16px;
+  text-align: left;
+  color: var(--header);
+  transition:
+    background 0.15s,
+    transform 0.08s;
+}
+
+.option:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.option.connect {
+  background: var(--go-strong);
+}
+
+.option-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.option-cmd svg {
+  font-size: 1.3rem;
+}
+
+.option-desc {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.option-context {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 @keyframes pulse {
   0% {
     box-shadow: 0 0 0 0 rgb(35 165 90 / 0.7);

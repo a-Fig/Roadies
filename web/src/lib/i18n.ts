@@ -1,4 +1,4 @@
-import { CAR_COLORS, isLang, LANGS, type CarProfile, type Lang } from '@roadies/shared';
+import { CAR_COLORS, isLang, LANGS, type CarProfile, type Lang, type NoticeCode } from '@roadies/shared';
 
 /**
  * Phone UI strings in English, French, Spanish and Vietnamese (DESIGN.md §1).
@@ -63,6 +63,10 @@ const en = {
   undeafen: 'Undeafen',
   disconnect: 'Disconnect',
   connect: 'Connect',
+  random: 'Random',
+  /** The disconnected-screen "connect" card's context line when there's no match yet. */
+  newRoom: 'New room',
+  notices: { 'no-open-rooms': 'No rooms open' } satisfies Record<NoticeCode, string>,
 
   // Settings
   setupTitle: 'Set up your car',
@@ -145,6 +149,9 @@ const fr: Strings = {
   undeafen: 'Remettre le son',
   disconnect: 'Déconnexion',
   connect: 'Connexion',
+  random: 'Aléatoire',
+  newRoom: 'Nouveau salon',
+  notices: { 'no-open-rooms': 'Aucun salon ouvert' },
 
   setupTitle: 'Configure ta voiture',
   setupSub: 'C’est comme ça que les autres roadies te voient.',
@@ -221,6 +228,9 @@ const es: Strings = {
   undeafen: 'Activar sonido',
   disconnect: 'Desconectar',
   connect: 'Conectar',
+  random: 'Aleatorio',
+  newRoom: 'Sala nueva',
+  notices: { 'no-open-rooms': 'Sin salas abiertas' },
 
   setupTitle: 'Configura tu auto',
   setupSub: 'Así te ven los demás roadies.',
@@ -298,6 +308,9 @@ const vi: Strings = {
   undeafen: 'Bật loa',
   disconnect: 'Ngắt kết nối',
   connect: 'Kết nối',
+  random: 'Ngẫu nhiên',
+  newRoom: 'Phòng mới',
+  notices: { 'no-open-rooms': 'Không có phòng nào' },
 
   setupTitle: 'Thiết lập xe của bạn',
   setupSub: 'Các roadie khác sẽ thấy bạn như thế này.',

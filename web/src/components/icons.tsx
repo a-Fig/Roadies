@@ -56,6 +56,19 @@ export const SpeakerIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const ShuffleIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M3 6h3.6c1.2 0 2.4.65 3 1.7l4.8 8.6c.6 1.05 1.8 1.7 3 1.7H21m0 0-3-3m3 3-3 3M3 18h3.6c1.2 0 2.4-.65 3-1.7l.6-1M21 6h-3.6c-1.2 0-2.4.65-3 1.7l-.6 1M21 6l-3-3m3 3-3 3"
+    />
+  </Icon>
+);
+
 export const CarIcon = (p: IconProps) => (
   <Icon {...p}>
     <path
