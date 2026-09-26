@@ -19,6 +19,7 @@ and this doc disagree, fix one of them.
 | Demo venue | Judges come to our table a few at a time; the laptop screen is the projector. No filler bots: the scripted placement stays as is. |
 | Communication | **Live voice only**, heavily modeled on Discord voice channels. No text chat. |
 | Controls | Bare spoken commands: `mute`, `unmute`, `deafen`, `undeafen`, `disconnect`, `connect`. No wake word. Buttons mirror them. |
+| Languages | **English, French, Spanish, Vietnamese** for the phone UI and spoken commands. Chosen in settings (`/setup`); defaults to the phone's language. English commands are always accepted too. Matchmaking ignores language: everyone lands in rooms by proximity, so rooms can mix languages. The projector stays English. Added 2026-09-26. |
 | Rooms | Max **8** people. Filled by proximity; reaches far away only when needed. |
 | Matchmaking | Nearby first (≤ 5 km to nearest member), else new room; alone ≥ 15 s → merged into nearest open room at any distance. Sticky. |
 | Demo locations | Server assigns simulated spots on real 101 NB choke points; cars inch forward. Normal link uses real GPS. |
@@ -134,10 +135,31 @@ audio. Disconnect = muted-to-everyone + deaf + removed from the room roster (a
 it to the `Recognizer`. Production uses Google Speech-to-Text streaming with the
 six words boosted as phrase hints; streams are restarted before Google's
 per-stream time limit. Aliases (e.g. "un mute") are normalized. Google's top 5
-guesses are checked: a lower guess counts only when the best guess is one or two
-words, so conversation never triggers. A few observed mishearings (e.g.
-"Stephan" for deafen) are parse-only aliases, never sent as phrase hints. Dev/tests use a
-`FakeRecognizer` fed by `POST /dev/say`.
+guesses are checked: a lower guess counts only when the best guess is at most
+two words, or no longer than that guess's phrase ("coupe le micro" is three),
+so conversation never triggers. A few observed mishearings (e.g. "Stephan" for
+deafen) are parse-only aliases, never sent as phrase hints; they are kept per
+recognizer language. Dev/tests use a `FakeRecognizer` fed by `POST /dev/say`.
+
+**Languages:** each driver's phone sends its language (`en`, `fr`, `es`, `vi`)
+in `hello`; the server keeps it on the car and hears that driver with a Google
+recognizer in that language (`fr-FR`, `es-US`, `vi-VN`), boosted with that
+language's phrases plus the English ones. `PHRASES` in `shared/src/voice.ts`
+lists each language's phrases, first one = what the screen tells you to say:
+
+| Command | fr | es | vi |
+| --- | --- | --- | --- |
+| `mute` | coupe le micro | apaga el micro | tắt mic |
+| `unmute` | active le micro | prende el micro | bật mic |
+| `deafen` | coupe le son | apaga el sonido | tắt loa |
+| `undeafen` | remets le son | prende el sonido | bật loa |
+| `disconnect` | déconnexion | desconectar | ngắt kết nối |
+| `connect` | connexion | conectar | kết nối |
+
+Parsing folds accents ("coupé" = "coupe", "đ" = "d"), and every language also
+accepts the English words. Changing language in settings reloads the page, so
+the phone says hello again and reconnects to LiveKit; the listener then hears
+the new track in the new language.
 
 Privacy note for the pitch: audio reaches our server for command detection;
 nothing is stored.
@@ -162,8 +184,12 @@ nothing is stored.
 
 ## 6. Normal mode
 
-- `/` → setup screen: pick car make, color, display name → saved on device →
-  "Start driving" → real GPS (`watchPosition`) → matchmaking.
+- `/` → setup screen: pick car make, color, display name and language → saved
+  on device → "Start driving" → real GPS (`watchPosition`) → matchmaking. The
+  home page links to it as "Settings".
+- The default name follows the language: "Teal Civic", "Civic turquoise",
+  "Civic turquesa", "Civic xanh ngọc". A returning phone's hello carries its
+  current name, so a rename or language switch shows up in the room right away.
 - Same glanceable driving UI and voice commands as demo mode.
 
 ## 7. Phone UI (glanceable driving mode)
@@ -174,7 +200,8 @@ nothing is stored.
   accents while live, **amber** for warnings.
 - Three giant buttons: Mute, Deafen, Disconnect/Connect (Discord red).
 - Hint strip: `Say: mute · unmute · deafen · undeafen · disconnect`, flashing the
-  last command heard. After disconnect: "Listening for 'connect'".
+  last command heard. After disconnect: "Listening for 'connect'". In another
+  language it shows that language's phrases (`Dis : coupe le micro · …`).
 - Audio: echo cancellation, noise suppression, auto gain on.
 - Screen wake lock while in a room, so a mounted phone doesn't sleep. If the
   page is hidden anyway, show a "Keep Roadies on screen" notice on return.
@@ -242,6 +269,11 @@ backend, rooms and voice commands.
   about 1.5 s.
 - Speech recognition accuracy in a noisy room (phrase boosting, aliases, tune on
   laptop).
+- English commands for a French, Spanish or Vietnamese driver: the parser
+  accepts them, but that driver's recognizer is not listening for English, and
+  in a TTS test it caught only a few of them (fr 3/12, es 3/12, vi 7/12; en-US
+  10/12 on the same clips). The screen only teaches the driver's own language.
+  Translations have not been reviewed by native speakers yet.
 - Venue Wi-Fi (LiveKit Cloud handles NAT/TURN; have a phone hotspot as backup).
 - Map tiles come from Esri's public tile service; if they fail, the corridor,
   jams and cars still draw on a dark background.

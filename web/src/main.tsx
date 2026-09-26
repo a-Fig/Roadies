@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
+import { lang, strings } from './lib/i18n';
 import { demoCar, savedProfile } from './lib/identity';
 import { Join } from './pages/Join';
 import { Setup } from './pages/Setup';
@@ -12,6 +13,10 @@ const Presenter = lazy(() => import('./pages/Presenter').then((m) => ({ default:
 function App() {
   const path = location.pathname.replace(/\/+$/, '') || '/';
   const params = new URLSearchParams(location.search);
+  // Phone pages follow the driver's language; the projector and /sounds stay English.
+  const l = path === '/presenter' || path === '/sounds' ? 'en' : lang();
+  const t = strings(l);
+  document.documentElement.lang = l;
 
   if (path === '/presenter') {
     return (
@@ -23,15 +28,7 @@ function App() {
   if (path === '/setup') return <Setup />;
   if (path === '/sounds') return <Sounds />;
   if (path === '/demo') {
-    return (
-      <Join
-        mode="demo"
-        profile={demoCar()}
-        spot={params.get('spot') ?? undefined}
-        kicker="Stuck on US-101 northbound · 8:15 AM"
-        cta="Join the jam"
-      />
-    );
+    return <Join mode="demo" lang={l} profile={demoCar()} spot={params.get('spot') ?? undefined} kicker={t.demoKicker} cta={t.demoCta} />;
   }
 
   const profile = savedProfile();
@@ -42,12 +39,13 @@ function App() {
   return (
     <Join
       mode="live"
+      lang={l}
       profile={profile}
-      kicker="Proximity voice for the jam you’re in"
-      cta="Start driving"
+      kicker={t.liveKicker}
+      cta={t.liveCta}
       footer={
         <p className="links">
-          <a href="/setup">Edit car</a> · <a href="/demo">Try the demo</a>
+          <a href="/setup">{t.settings}</a> · <a href="/demo">{t.tryDemo}</a>
         </p>
       }
     />

@@ -506,6 +506,24 @@ a {
   font-size: 2.6rem;
 }
 
+/* Longer labels in other languages ("Activer le micro") wrap inside the button. */
+.ctl span {
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+/* A single word too long for the button ("Déconnexion", "Desconectar") shrinks to fit
+   instead of breaking mid-word. cqi is 1% of the button's width. */
+.ctl {
+  container-type: inline-size;
+}
+
+.ctl span.long {
+  font-size: min(1rem, 15cqi);
+}
+
 .ctl:active:not(:disabled) {
   transform: scale(0.97);
 }

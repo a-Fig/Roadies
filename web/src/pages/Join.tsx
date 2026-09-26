@@ -1,7 +1,18 @@
-import { colorHex, STATS_PATH, type CarProfile, type LatLng, type Mode, type PublicStats } from '@roadies/shared';
-import { useEffect, useState, type ReactNode } from 'react';
+import {
+  colorHex,
+  COMMANDS,
+  sayPhrase,
+  STATS_PATH,
+  type CarProfile,
+  type Lang,
+  type LatLng,
+  type Mode,
+  type PublicStats,
+} from '@roadies/shared';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { CarIcon } from '../components/icons';
 import { unlockAudio } from '../lib/chimes';
+import { strings, type Strings } from '../lib/i18n';
 import { DriveSession } from '../lib/session';
 import { Drive } from './Drive';
 
@@ -14,6 +25,7 @@ declare global {
 
 interface JoinProps {
   mode: Mode;
+  lang: Lang;
   profile: CarProfile;
   spot?: string;
   kicker: string;
@@ -21,12 +33,12 @@ interface JoinProps {
   footer?: ReactNode;
 }
 
-function currentPosition(): Promise<LatLng> {
+function currentPosition(t: Strings): Promise<LatLng> {
   return new Promise((resolve, reject) => {
-    if (!('geolocation' in navigator)) return reject(new Error('This browser has no GPS access.'));
+    if (!('geolocation' in navigator)) return reject(new Error(t.noGps));
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-      (err) => reject(new Error(err.code === err.PERMISSION_DENIED ? 'Roadies needs your location to find nearby drivers.' : err.message)),
+      (err) => reject(new Error(err.code === err.PERMISSION_DENIED ? t.needLocation : err.message)),
       { enableHighAccuracy: true, timeout: 15_000 },
     );
   });
@@ -64,7 +76,8 @@ function useDriversTalking(active: boolean): number | null {
 }
 
 /** The one tap that unlocks mic + audio, then the driving screen. */
-export function Join({ mode, profile, spot, kicker, cta, footer }: JoinProps) {
+export function Join({ mode, lang, profile, spot, kicker, cta, footer }: JoinProps) {
+  const t = strings(lang);
   const [session, setSession] = useState<DriveSession | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,15 +103,15 @@ export function Join({ mode, profile, spot, kicker, cta, footer }: JoinProps) {
     setBusy(true);
     setError(null);
     unlockAudio();
-    const s = new DriveSession({ mode, profile, spot });
+    const s = new DriveSession({ mode, lang, profile, spot });
     try {
       await s.voice.prepareMic();
-      if (mode === 'live') s.updatePosition(await currentPosition());
+      if (mode === 'live') s.updatePosition(await currentPosition(t));
     } catch (err) {
       await s.stop();
       setBusy(false);
       const message = (err as Error).message;
-      setError(/permission|denied|not allowed/i.test(message) ? 'Roadies needs your microphone. Allow it and tap again.' : message);
+      setError(/permission|denied|not allowed/i.test(message) ? t.needMic : message);
       return;
     }
     window.__roadies = s;
@@ -106,7 +119,9 @@ export function Join({ mode, profile, spot, kicker, cta, footer }: JoinProps) {
     setSession(s);
   };
 
-  if (session) return <Drive session={session} />;
+  if (session) return <Drive session={session} lang={lang} />;
+
+  const phrases = COMMANDS.map((cmd) => sayPhrase(lang, cmd));
 
   return (
     <main className="splash">
@@ -120,7 +135,7 @@ export function Join({ mode, profile, spot, kicker, cta, footer }: JoinProps) {
         {talking !== null && (
           <>
             <span className="live-dot" aria-hidden="true" />
-            {talking === 0 ? 'No one’s talking yet. Be the first.' : `${talking} ${talking === 1 ? 'driver' : 'drivers'} talking`}
+            {talking === 0 ? t.nobodyTalking : t.driversTalking(talking)}
           </>
         )}
       </p>
@@ -129,17 +144,23 @@ export function Join({ mode, profile, spot, kicker, cta, footer }: JoinProps) {
           <CarIcon />
         </span>
         <div>
-          <div className="car-name">You’re the {profile.name}</div>
-          <div className="car-sub">Voice chat with the drivers stuck around you</div>
+          <div className="car-name">{t.youAre(profile.name)}</div>
+          <div className="car-sub">{t.tagline}</div>
         </div>
       </div>
       <button className="primary big" onClick={() => void join()} disabled={busy}>
-        {busy ? 'Starting…' : cta}
+        {busy ? t.starting : cta}
       </button>
       {error && <p className="notice error">{error}</p>}
       <p className="fine">
-        Hands-free: say <b>mute</b>, <b>unmute</b>, <b>deafen</b>, <b>undeafen</b>, <b>disconnect</b> or <b>connect</b>.
-        Roadies listens for those words on its server; nothing is recorded.
+        {t.handsFree}{' '}
+        {phrases.map((p, i) => (
+          <Fragment key={p}>
+            {i > 0 && (i < phrases.length - 1 ? ', ' : ` ${t.or} `)}
+            <b>{p}</b>
+          </Fragment>
+        ))}
+        . {t.privacy}
       </p>
       {footer}
     </main>

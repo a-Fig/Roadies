@@ -4,6 +4,7 @@ import {
   type ClientMessage,
   type Command,
   type CommandSource,
+  type Lang,
   type LatLng,
   type Mode,
   type RoomInfo,
@@ -11,6 +12,7 @@ import {
   type VoiceState,
 } from '@roadies/shared';
 import { chimes } from './chimes';
+import { strings } from './i18n';
 import { clientId } from './identity';
 import { RoadiesSocket, type SocketStatus } from './socket';
 import { VoiceClient } from './voice';
@@ -31,6 +33,8 @@ export interface SessionView {
 
 export interface SessionOptions {
   mode: Mode;
+  /** UI language, and the language the server hears voice commands in. */
+  lang: Lang;
   profile: CarProfile;
   /** Demo: force a jam, e.g. "hospital-curve" or "loner". */
   spot?: string;
@@ -45,6 +49,8 @@ export class DriveSession {
   private readonly listeners = new Set<() => void>();
   private pos: LatLng | undefined;
   private view: SessionView;
+  /** The error shown for the last failed voice join, cleared once voice connects. */
+  private voiceError: string | null = null;
 
   constructor(private readonly opts: SessionOptions) {
     this.pos = opts.pos;
@@ -104,6 +110,7 @@ export class DriveSession {
       profile: this.opts.profile,
       spot: this.opts.spot,
       pos: this.pos,
+      lang: this.opts.lang,
     };
   }
 
@@ -119,11 +126,13 @@ export class DriveSession {
         this.voice
           .join(msg.room.id, msg.livekit, this.view.state)
           .then(() => {
-            if (this.view.error?.startsWith('Voice connection failed')) this.update({ error: null });
+            if (this.voiceError !== null && this.view.error === this.voiceError) this.update({ error: null });
+            this.voiceError = null;
           })
           .catch((err: Error) => {
             console.error(err);
-            this.update({ error: `Voice connection failed: ${err.message}` });
+            this.voiceError = `${strings(this.opts.lang).voiceFailed}: ${err.message}`;
+            this.update({ error: this.voiceError });
           });
         break;
       }
