@@ -54,7 +54,7 @@ Each command is a whole utterance. Say the word by itself and the server applies
 
 **One path for buttons and voice.** A tap and a spoken command go through the same state machine on the server, which owns every driver's room and mute/deafen state and pushes the result to the phone. The phone never decides anything, so buttons and voice can't disagree.
 
-**Matchmaking.** You join the room whose nearest active driver is closest to you (haversine distance) and has a free seat out of four; otherwise you open a new room, named after the nearest landmark ("Hospital Curve #2"). Rooms are sticky as traffic moves. A driver left alone for 15 seconds is merged into the closest open room.
+**Matchmaking.** You join the room whose nearest active driver is closest to you (haversine distance) and has a free seat out of four; otherwise you open a new room, named after the nearest landmark (`Hospital Curve #2`). Rooms are sticky as traffic moves. A driver left alone for 15 seconds is merged into the closest open room.
 
 **Tested at the audio level.** 108 Vitest tests cover matchmaking, the command parser in all four languages, the speech gate and the whole server driven by a fake clock. 13 Playwright tests run real Chromium "phones" with fake microphones through a local LiveKit server and check that mute, deafen and disconnect really cut you off from the room while the hidden listener still receives your mic. GitHub Actions runs all of it on every pull request.
 
@@ -80,7 +80,8 @@ You need Node 22 or newer, Git, and ports 5173, 7880 and 8080 free. On Windows, 
 3. Your local copy has no speech recognition, so type what a driver says instead. Demo cars join muted; unmute one by name (pick any name from the projector's channel list):
 
    ```sh
-   curl -X POST localhost:8080/dev/say -H 'content-type: application/json'      -d '{"name":"Teal Civic","text":"unmute"}'
+   curl -X POST localhost:8080/dev/say -H 'content-type: application/json' \
+     -d '{"name":"Teal Civic","text":"unmute"}'
    ```
 
    That tab plays the unmute sound and its muted badge disappears in every tab. Try `deafen`, `disconnect` and `connect` the same way.
