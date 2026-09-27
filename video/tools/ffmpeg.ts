@@ -2,7 +2,7 @@
  * The ffmpeg/ffprobe that ship with Remotion's compositor, so the reel needs no
  * separate ffmpeg install.
  */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
@@ -17,6 +17,13 @@ const exe = (name: string) => path.join(binDir(), process.platform === 'win32' ?
 
 export function ffmpeg(args: string[]): void {
   execFileSync(exe('ffmpeg'), ['-hide_banner', '-loglevel', 'error', '-y', ...args], { stdio: 'inherit' });
+}
+
+/** A long-running ffmpeg that reads from stdin (for streaming frames in). */
+export function ffmpegPipe(args: string[]): ChildProcess {
+  return spawn(exe('ffmpeg'), ['-hide_banner', '-loglevel', 'error', '-y', ...args], {
+    stdio: ['pipe', 'inherit', 'inherit'],
+  });
 }
 
 export function durationSeconds(file: string): number {
