@@ -2,7 +2,7 @@ import type { CarProfile, Lang, ServerMessage } from '@roadies/shared';
 import { describe, expect, it } from 'vitest';
 import { carIdFor, MAX_CARS, World } from '../src/world';
 
-function setup() {
+function setup(rng?: () => number) {
   let now = 1_000_000;
   let seed = 1;
   const created: string[] = [];
@@ -10,7 +10,7 @@ function setup() {
   const langChanges: [string, Lang][] = [];
   const world = new World({
     now: () => now,
-    rng: () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646,
+    rng: rng ?? (() => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646),
     issueToken: async (identity, _name, room) => `token:${identity}:${room}`,
     livekitUrl: 'wss://lk.test',
     listenerIdentity: 'roadies-listener',
@@ -29,6 +29,7 @@ function setup() {
       pos?: { lat: number; lng: number };
       profile?: CarProfile;
       lang?: string;
+      join?: 'random';
     } = {},
   ) => {
     const inbox: ServerMessage[] = [];
@@ -44,6 +45,7 @@ function setup() {
         pos: extra.pos,
         // A string, not a Lang: the server must cope with whatever a phone sends.
         lang: extra.lang as Lang | undefined,
+        join: extra.join,
       },
       send,
     );
@@ -447,5 +449,45 @@ describe('World', () => {
     const name = t.world.getCar(t.pub('car-emoji'))!.profile.name;
     expect(name.length).toBeGreaterThan(0);
     expect(name).toMatch(/^[A-Za-z0-9' -]+$/); // a real random car name, not leftover markup
+  });
+
+  describe('hello: join "random"', () => {
+    const NEAR = { lat: 37.7749, lng: -122.4194 };
+    const FAR = { lat: 40, lng: -122.4194 }; // hundreds of km away
+
+    /** Room A (near, full at capacity 4) and room B (far, one seat free) - both real candidates for `random`. */
+    function twoOpenRooms(rng?: () => number) {
+      const t = setup(rng);
+      for (let i = 0; i < 4; i++) t.join(`a${i}`, { mode: 'live', pos: NEAR }); // room A: 4/4
+      t.join('b0', { mode: 'live', pos: FAR }); // A is full -> room B, 1/4
+      t.world.command(t.pub('a0'), 'disconnect', 'button'); // A: 3/4, open again
+      return t;
+    }
+
+    it('lands in a farther room instead of the closest one, driven by the injected rng', async () => {
+      const t = twoOpenRooms(() => 0.99); // picks the last candidate, not the nearest
+      t.join('newcar', { mode: 'live', pos: NEAR, join: 'random' });
+      await t.flush();
+      const assigned = t.last('newcar', 'assigned')!;
+      expect(assigned.room.id).toBe(t.world.matchmaker.roomOf(t.pub('b0'))!.id);
+      expect(t.world.matchmaker.roomOf(t.pub('newcar'))).not.toBe(t.world.matchmaker.roomOf(t.pub('a1')));
+    });
+
+    it('still opens a new room when nothing is open', async () => {
+      const t = setup(() => 0);
+      t.join('first-random', { mode: 'live', pos: NEAR, join: 'random' }); // the very first joiner: nowhere open yet
+      await t.flush();
+      expect(t.world.snapshot().rooms).toHaveLength(1);
+      expect(t.last('first-random', 'assigned')).toBeDefined();
+    });
+
+    it('is ignored for a returning (already-placed) car', async () => {
+      const t = twoOpenRooms(() => 0.99);
+      await t.flush();
+      const roomBefore = t.world.matchmaker.roomOf(t.pub('a1'));
+      t.join('a1', { mode: 'live', pos: NEAR, join: 'random' }); // same clientId: a reconnect, not a fresh join
+      await t.flush();
+      expect(t.world.matchmaker.roomOf(t.pub('a1'))).toBe(roomBefore);
+    });
   });
 });

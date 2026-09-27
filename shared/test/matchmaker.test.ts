@@ -87,6 +87,61 @@ describe('Matchmaker.place', () => {
   });
 });
 
+describe('Matchmaker.placeRandom', () => {
+  it('starts a new named room for the first driver, same as place', () => {
+    const mm = make();
+    const events = mm.placeRandom('a', at(0), 0, () => 0);
+    expect(events.map((e) => e.type)).toEqual(['room-created', 'joined']);
+    expect(joinedRoom(events).reason).toBe('new-room');
+  });
+
+  /** capacity 2, two rooms each left with exactly one free seat - a near one and a far one. */
+  function nearAndFarOpenRooms() {
+    const mm = make(2);
+    mm.place('near1', at(0), 0);
+    mm.place('near2', at(0.1), 0); // near room full (2/2)
+    mm.place('far1', at(1000), 0); // doesn't fit -> new, far room
+    mm.place('far2', at(1000.1), 0); // far room full (2/2)
+    mm.remove('near2', 0); // free a seat near (1/2)
+    mm.remove('far2', 0); // free a seat far (1/2)
+    return { mm, near: mm.roomOf('near1')!.id, far: mm.roomOf('far1')!.id };
+  }
+
+  it('never picks the closest room over a farther one - uses the injected rng uniformly', () => {
+    const { mm: mm1, near } = nearAndFarOpenRooms();
+    // Placed right next to the near room; rng()=0 still has to be able to pick
+    // the far one, unlike `place`, which would always pick near (it's closest).
+    expect(joinedRoom(mm1.placeRandom('c', at(0.01), 0, () => 0)).roomId).toBe(near);
+    const { mm: mm2, far } = nearAndFarOpenRooms();
+    expect(joinedRoom(mm2.placeRandom('c', at(0.01), 0, () => 0.99)).roomId).toBe(far);
+  });
+
+  it('opens a new room when nothing is open, even close by', () => {
+    const mm = make(1);
+    mm.place('a', at(0), 0); // room full (1/1)
+    const e = joinedRoom(mm.placeRandom('b', at(0.01), 0, () => 0));
+    expect(e.reason).toBe('new-room');
+    expect(mm.roomOf('b')).not.toBe(mm.roomOf('a'));
+  });
+
+  it('skips full rooms and rooms with only ghosts', () => {
+    const mm = make(2);
+    mm.place('full1', at(0), 0);
+    mm.place('full2', at(0.01), 0); // full (2/2)
+    mm.place('ghost', at(10), 0);
+    mm.disconnect('ghost', 0); // active 0/2 - ghosts-only, not a real candidate
+    mm.place('open', at(20), 0); // the only real candidate (1/2)
+    const e = joinedRoom(mm.placeRandom('c', at(20.01), 0, () => 0));
+    expect(e.roomId).toBe(mm.roomOf('open')!.id);
+  });
+
+  it('refuses to place the same driver twice', () => {
+    const mm = make();
+    mm.placeRandom('a', at(0), 0, () => 0);
+    expect(() => mm.placeRandom('a', at(0), 0, () => 0)).toThrow();
+  });
+});
+
 describe('Matchmaker.closestOpen', () => {
   it('returns null when there is nowhere open', () => {
     const mm = make();

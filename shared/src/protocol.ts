@@ -48,6 +48,11 @@ export type ClientMessage =
       pos?: LatLng;
       /** Language for spoken commands; the server falls back to 'en'. */
       lang?: Lang;
+      /**
+       * First join only: seat in a uniformly random open room instead of the
+       * default closest-first. Ignored for a returning car (already placed).
+       */
+      join?: 'random';
     }
   | { t: 'pos'; pos: LatLng }
   | { t: 'cmd'; cmd: Command };

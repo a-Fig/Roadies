@@ -126,6 +126,34 @@ export class Matchmaker {
   }
 
   /**
+   * Like `place`, but for a driver's very first join who asked for "random"
+   * instead of the default closest-first: seats them in a uniformly random
+   * open room (some active member, a free seat) if one exists, or a new room
+   * otherwise. Never closest-first, unlike `place`.
+   */
+  placeRandom(memberId: string, pos: LatLng, now: number, rng: () => number): MatchEvent[] {
+    if (this.memberRoom.has(memberId)) throw new Error(`${memberId} is already placed`);
+    const events: MatchEvent[] = [];
+    const candidates = [...this.rooms.values()].filter((r) => {
+      const active = this.activeCount(r);
+      return active > 0 && active < this.config.capacity;
+    });
+    let target: MatchRoom;
+    let reason: JoinReason;
+    if (candidates.length > 0) {
+      target = candidates[Math.floor(rng() * candidates.length)]!;
+      reason = 'random';
+    } else {
+      target = this.createRoom(pos, now);
+      events.push({ type: 'room-created', roomId: target.id });
+      reason = 'new-room';
+    }
+    this.addMember(target, { id: memberId, pos, active: true }, now);
+    events.push({ type: 'joined', memberId, roomId: target.id, reason });
+    return events;
+  }
+
+  /**
    * Always open a brand-new room for this member, ignoring any open seats
    * elsewhere — unlike `place`, which would otherwise fold them into whatever
    * closest room has space. Demo/presenter-only (`World.spawnLoner`, the `L`
