@@ -1,6 +1,13 @@
-/* Roadies: ~90% Discord theme, 10% night highway. Phone screens (splash/setup/
-   drive) follow the OS light/dark setting, like the brand kit (brand.css);
-   the presenter/projector is exempt (see its own rule below) and always dark. */
+/* Roadies. Phone screens (Join/Drive/Setup, `.splash`/`.drive`/`.setup`) wear
+   the girlfriend's own visual language: they carry the `.brand-kit` class
+   (brand.css) and every phone-specific rule below reads its `--brand-*`
+   tokens (her cream/orange/teal, Bepory headings, Roboto body), following
+   the OS light/dark setting exactly like the /brand preview page.
+
+   The presenter/projector keeps the ORIGINAL ~90%-Discord look below (greys,
+   `--go`/`--brake`/`--amber`/`--blurple`) - it is a shared, presented screen,
+   not a driver's phone, and was never part of this restyle; it stays dark
+   regardless of the OS setting via its own `.presenter` rule. */
 :root {
   --bg-rail: #f2f3f5;
   --bg-sidebar: #f2f3f5;
@@ -169,15 +176,13 @@ a {
   gap: 12px;
 }
 
+/* Her actual "Roadies" outlined-Bepory SVG (icons.tsx's Wordmark), not the
+   app icon + text. */
 .wordmark {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: 'Bepory', 'Roboto', inherit;
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: var(--header);
-  letter-spacing: -0.02em;
+  display: block;
+  height: 30px;
+  width: auto;
+  fill: var(--brand-orange);
 }
 
 .icon-btn {
@@ -186,65 +191,100 @@ a {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  color: var(--text-muted);
+  color: var(--brand-ink-soft);
   font-size: 1.4rem;
   flex: none;
 }
 
 .icon-btn:hover {
-  background: var(--bg-hover);
-  color: var(--header);
+  background: var(--brand-orange-tint);
+  color: var(--brand-fg);
 }
 
+/* Her teal jam card: a big road/kicker line, a live drivers count, and her
+   two intro cars tucked in the corner (decorative flourish, not the
+   driver's own car - see .jam-cars below). Fixed teal/cream regardless of
+   theme, like her one-theme app: it is a brand-colored callout, not a
+   surface that should fade with the page. */
 .jam-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: var(--bg-sidebar);
-  border-radius: 16px;
-  padding: 16px;
+  gap: 10px;
+  background: #137584;
+  color: #fffcee;
+  border-radius: 28px;
+  padding: 22px 22px 24px;
 }
 
-.jam-card .car-card {
-  background: none;
-  padding: 0;
+.jam-cars {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fffcee;
+  pointer-events: none;
+}
+
+.jam-cars > span {
+  margin-inline: -10px;
 }
 
 .kicker {
   margin: 0;
-  color: var(--amber);
-  font-weight: 600;
-  font-size: 1.05rem;
+  font-family: var(--brand-font-display);
+  font-weight: 400;
+  font-size: clamp(1.6rem, 8vw, 2.4rem);
+  line-height: 1.08;
 }
 
 .live-count {
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: var(--header);
-  font-weight: 700;
-  font-size: 1.1rem;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
   font-variant-numeric: tabular-nums;
-  min-height: 1.5em;
+  min-height: 1.4em;
+  opacity: 0.92;
 }
 
 .live-dot {
   flex: none;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--go);
+  background: #f4682c;
   animation: live-pulse 2s ease-out infinite;
 }
 
 @keyframes live-pulse {
   from {
-    box-shadow: 0 0 0 0 rgb(35 165 90 / 0.6);
+    box-shadow: 0 0 0 0 rgb(244 104 44 / 0.5);
   }
   to {
-    box-shadow: 0 0 0 10px rgb(35 165 90 / 0);
+    box-shadow: 0 0 0 8px rgb(244 104 44 / 0);
   }
+}
+
+/* "You're the Teal Accord": a small chip at most, not a full car-card row. */
+.car-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 5px 12px 5px 6px;
+  border-radius: 999px;
+  background: var(--brand-orange-tint);
+  color: var(--brand-fg);
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -257,42 +297,45 @@ a {
   display: flex;
   align-items: center;
   gap: 14px;
-  background: var(--bg-sidebar);
+  background: var(--brand-card);
   border-radius: 12px;
   padding: 16px;
 }
 
 .car-name {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--header);
+  font-family: var(--brand-font-display);
+  font-weight: 400;
+  font-size: 1.5rem;
+  color: var(--brand-fg);
 }
 
 .car-sub {
   margin: 2px 0 0;
-  color: var(--text-muted);
+  color: var(--brand-ink-soft);
 }
 
 .fine {
-  color: var(--text-muted);
+  color: var(--brand-ink-soft);
   font-size: 0.9rem;
   line-height: 1.45;
   margin: 0;
 }
 
 .fine b {
-  color: var(--text);
+  color: var(--brand-fg);
 }
 
 .links {
   margin: 0;
-  color: var(--text-muted);
+  color: var(--brand-ink-soft);
 }
 
 .setup h1 {
   margin: 0;
-  color: var(--header);
-  font-size: 1.8rem;
+  font-family: var(--brand-font-display);
+  font-weight: 400;
+  color: var(--brand-fg);
+  font-size: 2rem;
 }
 
 .field {
@@ -310,7 +353,7 @@ a {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: var(--text-muted);
+  color: var(--brand-ink-soft);
   padding: 0;
   margin-bottom: 8px;
 }
@@ -318,8 +361,8 @@ a {
 .field input {
   font: inherit;
   font-size: 1.05rem;
-  color: var(--header);
-  background: var(--bg-input);
+  color: var(--brand-fg);
+  background: var(--brand-card);
   border: 0;
   border-radius: 4px;
   padding: 12px;
@@ -327,7 +370,7 @@ a {
 }
 
 .field input:focus {
-  outline: 2px solid var(--amber);
+  outline: 2px solid var(--brand-teal);
 }
 
 .swatches {
@@ -341,13 +384,13 @@ a {
   place-items: center;
   padding: 8px 4px;
   border-radius: 12px;
-  background: var(--bg-input);
+  background: var(--brand-card);
   box-shadow: inset 0 0 0 2px transparent;
 }
 
 .swatch.selected {
-  box-shadow: inset 0 0 0 2px var(--amber);
-  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 2px var(--brand-orange);
+  background: var(--brand-orange-tint);
 }
 
 .chips {
@@ -357,45 +400,25 @@ a {
 }
 
 .chip {
-  background: var(--bg-button);
+  background: var(--brand-card);
+  color: var(--brand-fg);
   padding: 8px 12px;
   border-radius: 16px;
   font-weight: 500;
 }
 
 .chip.selected {
-  background: var(--amber);
-  color: #1e1f22;
+  background: var(--brand-orange);
+  color: var(--brand-cream);
 }
 
 /* ---------- Drive (glanceable) ---------- */
 
 .drive {
-  --tint: transparent;
   min-height: 100%;
   display: flex;
   flex-direction: column;
   padding: max(14px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
-  background:
-    radial-gradient(120% 60% at 50% 0%, var(--tint), transparent 70%),
-    var(--bg-main);
-  transition: background 0.3s;
-}
-
-.drive[data-tone='live'] {
-  --tint: rgb(35 165 90 / 0.18);
-}
-
-.drive[data-tone='muted'],
-.drive[data-tone='deaf'] {
-  --tint: rgb(242 63 67 / 0.35);
-  background:
-    radial-gradient(120% 60% at 50% 0%, var(--tint), transparent 70%),
-    #3a2528;
-}
-
-.drive[data-tone='off'] {
-  background: #232428;
 }
 
 .drive-top {
@@ -411,11 +434,11 @@ a {
   align-items: center;
   gap: 8px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--brand-ink-soft);
 }
 
 .voice-status.ok {
-  color: var(--go);
+  color: var(--brand-teal);
 }
 
 .signal {
@@ -445,7 +468,7 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-muted);
+  color: var(--brand-ink-soft);
   font-weight: 600;
   min-width: 0;
   white-space: nowrap;
@@ -473,67 +496,84 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: clamp(2rem, 9vw, 3.2rem);
+  font-family: var(--brand-font-display);
+  font-size: clamp(1.8rem, 8vw, 2.8rem);
   line-height: 1.08;
-  font-weight: 800;
-  color: var(--header);
-  letter-spacing: -0.02em;
+  font-weight: 400;
+  color: var(--brand-fg);
 }
 
 .status-icon {
   flex: none;
-  color: var(--text-muted);
+  color: var(--brand-ink-soft);
   font-size: 0.8em;
 }
 
 .status-sub {
   margin: 0;
-  font-size: 1.3rem;
-  color: var(--text-muted);
+  font-size: 1.1rem;
+  color: var(--brand-ink-soft);
   font-weight: 600;
 }
 
+/* Only rendered when there's something worth a glance (someone's talking, or
+   you can't hear); no idle "Quiet road" filler line (minimal-text rule). */
 .talking {
   margin: 12px 0 0;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 18px;
+  padding: 14px 18px;
   border-radius: 14px;
-  background: rgb(0 0 0 / 0.22);
-  font-size: 1.45rem;
+  background: var(--brand-card);
+  font-size: 1.15rem;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--brand-ink-soft);
 }
 
 .talking-dot {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: #4e5058;
+  background: var(--brand-ink-soft);
   flex: none;
 }
 
 .talking.on {
-  color: var(--header);
-  box-shadow: inset 0 0 0 2px var(--go);
+  color: var(--brand-fg);
+  box-shadow: inset 0 0 0 2px var(--brand-teal);
 }
 
 .talking.on .talking-dot {
-  background: var(--go);
-  animation: pulse 1.1s ease-out infinite;
+  background: var(--brand-teal);
+  animation: pulse-teal 1.1s ease-out infinite;
 }
 
+@keyframes pulse-teal {
+  0% {
+    box-shadow: 0 0 0 0 rgb(19 117 132 / 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgb(19 117 132 / 0);
+  }
+}
+
+/* Her muted/deafened cue: one short pill, never a full-screen tone wash. */
 .banner {
   margin: 0;
   align-self: flex-start;
-  padding: 10px 16px;
-  border-radius: 10px;
-  background: var(--brake);
-  color: #fff;
-  font-weight: 800;
-  font-size: 1.3rem;
-  letter-spacing: 0.02em;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--brand-orange-tint);
+  color: var(--brand-orange);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+}
+
+.drive[data-tone='deaf'] .banner {
+  background: var(--brand-teal-tint);
+  color: var(--brand-teal);
 }
 
 .avatar-grid {
@@ -550,7 +590,7 @@ a {
   gap: 6px;
   padding: 12px 8px;
   border-radius: 16px;
-  background: var(--bg-sidebar);
+  background: var(--brand-card);
   min-width: 0;
 }
 
@@ -559,36 +599,41 @@ a {
   display: inline-flex;
 }
 
-.avatar-tile .avatar {
-  width: 56px;
-  height: 56px;
-  font-size: 34px;
-  background: var(--bg-rail);
+/* Her round avatar circle: tinted by the driver's car color (orange for
+   "you"), with the car art rendered cream so it always reads against any
+   tint - the same convention as her own tone-colored circle + cream icon. */
+.avatar-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
 }
 
-.avatar-tile.speaking {
-  box-shadow: inset 0 0 0 2px var(--go);
+.avatar-tile.speaking .avatar-circle {
+  box-shadow: 0 0 0 3px var(--brand-card), 0 0 0 6px var(--brand-teal);
 }
 
 .muted-badge {
   position: absolute;
   right: -2px;
   bottom: -2px;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--brake);
+  border: 2px solid var(--brand-card);
+  background: var(--brand-ink);
   display: grid;
   place-items: center;
-  color: #fff;
+  color: var(--brand-cream);
   font-size: 12px;
-  box-shadow: 0 0 0 2px var(--bg-sidebar);
 }
 
 .avatar-tile .name {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--header);
+  color: var(--brand-fg);
   text-align: center;
   max-width: 100%;
   overflow: hidden;
@@ -596,32 +641,43 @@ a {
   white-space: nowrap;
 }
 
+/* Only shown while disconnected (a hands-free cue) or flashing a "heard"
+   confirmation; empty and unobtrusive once connected and quiet - her app has
+   no persistent command-list reminder either. */
 .hint {
   margin: 8px 0 12px;
   text-align: center;
-  color: var(--text-muted);
-  font-size: 1.05rem;
+  color: var(--brand-ink-soft);
+  font-size: 0.95rem;
   font-weight: 600;
-  padding: 10px;
+  min-height: 1.3em;
+  padding: 0 10px;
   border-radius: 10px;
   transition: background 0.2s;
 }
 
 .hint.flash {
-  background: var(--amber);
-  color: #1e1f22;
+  padding: 10px;
+  background: var(--brand-orange-tint);
+  color: var(--brand-orange);
 }
 
+/* Her dark ink control bar, regardless of theme (like the jam card, a fixed
+   brand element rather than a page surface). */
 .controls {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  margin: 0 -16px calc(-1 * max(16px, env(safe-area-inset-bottom)));
+  padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+  background: #2a1f1f;
+  border-radius: 28px 28px 0 0;
 }
 
 .ctl {
   min-height: 116px;
   border-radius: 22px;
-  background: var(--bg-button);
+  background: rgb(255 252 238 / 0.12);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -629,7 +685,7 @@ a {
   gap: 6px;
   font-weight: 700;
   font-size: 1rem;
-  color: var(--header);
+  color: var(--brand-cream);
   transition:
     background 0.15s,
     transform 0.08s;
@@ -661,17 +717,16 @@ a {
   transform: scale(0.97);
 }
 
+/* Pressed/toggled = teal, hang up = orange (her exact convention). */
 .ctl.on {
-  background: var(--brake);
+  background: var(--brand-teal);
+  color: var(--brand-cream);
 }
 
-.ctl.hangup {
-  background: var(--brake-strong);
-}
-
+.ctl.hangup,
 .ctl.connect {
-  grid-column: span 1;
-  background: var(--go-strong);
+  background: var(--brand-orange);
+  color: var(--brand-cream);
 }
 
 .options {
@@ -680,18 +735,20 @@ a {
   gap: 12px;
 }
 
+/* Her big white rounded command cards: the command word in orange Bepory,
+   a small context line under it. No icon (she doesn't use one here). */
 .option {
   min-height: 116px;
   border-radius: 22px;
-  background: var(--bg-button);
+  background: var(--brand-card);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: 5px;
+  gap: 4px;
   padding: 14px 16px;
   text-align: left;
-  color: var(--header);
+  color: var(--brand-fg);
   transition:
     background 0.15s,
     transform 0.08s;
@@ -701,31 +758,21 @@ a {
   transform: scale(0.97);
 }
 
-.option.connect {
-  background: var(--go-strong);
-}
-
 .option-cmd {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 800;
-  font-size: 1.05rem;
+  font-family: var(--brand-font-display);
+  font-weight: 400;
+  font-size: 1.4rem;
+  color: var(--brand-orange);
 }
 
-.option-cmd svg {
-  font-size: 1.3rem;
-}
-
-.option-desc {
-  font-size: 0.85rem;
-  font-weight: 600;
-  opacity: 0.85;
-}
-
+.option-desc,
 .option-context {
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--brand-ink-soft);
 }
 
 @keyframes pulse {

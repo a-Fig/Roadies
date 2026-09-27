@@ -1,7 +1,7 @@
 import { colorHex, isTransmitting, sayPhrase, type Command, type Lang, type RosterMember } from '@roadies/shared';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { CarArt } from '../components/CarArt';
-import { CarIcon, HangUpIcon, HeadphonesIcon, MicIcon, PhoneIcon, ShuffleIcon, SpeakerIcon } from '../components/icons';
+import { CarIcon, HangUpIcon, HeadphonesIcon, MicIcon, SpeakerIcon } from '../components/icons';
 import { unlockAudio } from '../lib/chimes';
 import { strings } from '../lib/i18n';
 import type { DriveSession } from '../lib/session';
@@ -10,8 +10,8 @@ import { keepScreenOn } from '../lib/wakelock';
 const HEARD_FLASH_MS = 2500;
 const NOTICE_FLASH_MS = 4000;
 
-/** What the hint strip tells you to say: mute/etc while connected, connect/random while not. */
-const HINTED: Command[] = ['mute', 'unmute', 'deafen', 'undeafen', 'disconnect'];
+/** What the disconnected hint strip tells you to say to get back in. Connected and quiet
+ * shows no persistent command list (minimal-text rule; the muted/deafened pill covers that). */
 const HINTED_DISCONNECTED: Command[] = ['connect', 'random'];
 
 /** A button label; a word longer than "Disconnect" ("Déconnexion") gets the smaller `long` size. */
@@ -73,32 +73,43 @@ export function Drive({ session, lang }: { session: DriveSession; lang: Lang }) 
     title = t.finding;
     subtitle = view.socket === 'open' ? t.matching : t.connecting;
   } else {
-    // Room names are place names: never translated.
+    // Room names are place names: never translated. Always a count (her
+    // room-sub is just as glanceable alone as with company) - no "Just you
+    // so far" sentence.
     title = room.name;
-    subtitle = members.length <= 1 ? t.justYou : t.roomCount(members.length);
+    subtitle = t.roomCount(members.length);
   }
 
-  let talkLine: string;
-  if (!state.connected) talkLine = t.sayToRejoin(`${say('connect')} ${t.or} ${say('random')}`);
+  // Only worth a glance when there's something to report; no idle "Quiet
+  // road" filler (minimal-text rule - her room screen has none either).
+  // Disconnected already says "Listening for ..." in the subtitle above -
+  // no second "Say ... to rejoin" line repeating the same two words.
+  let talkLine: string | null;
+  if (!state.connected) talkLine = null;
   else if (talking.length > 0) talkLine = t.talking(talking.map((m) => m.name));
   else if (meTalking) talkLine = t.onAir;
   else if (state.selfDeaf) talkLine = t.cantHear;
-  else talkLine = t.quiet;
+  else talkLine = null;
 
   const isMuted = (m: RosterMember) => m.state.selfMute || m.state.selfDeaf;
   const isSpeaking = (m: RosterMember) => view.speakers.includes(m.id) && isTransmitting(m.state);
 
   const heardFresh = view.heard && now - view.heard.at < HEARD_FLASH_MS ? view.heard : null;
   const noticeFresh = view.notice && now - view.notice.at < NOTICE_FLASH_MS ? view.notice : null;
+  // Connected and quiet: no persistent "Say: mute · unmute · ..." reminder
+  // (minimal-text rule; the muted/deafened pill below already carries that
+  // cue). The disconnected fallback stays - it's the hands-free way back in.
   const hint = heardFresh
     ? heardFresh.source === 'presenter'
       ? t.presenterUsed(say(heardFresh.cmd))
       : t.heard(say(heardFresh.cmd))
-    : `${t.say} ${(state.connected ? HINTED : HINTED_DISCONNECTED).map((cmd) => sayPhrase(lang, cmd)).join(' · ')}`;
+    : state.connected
+      ? ''
+      : `${t.say} ${HINTED_DISCONNECTED.map((cmd) => sayPhrase(lang, cmd)).join(' · ')}`;
 
   return (
     // Any tap re-unlocks audio: iOS suspends it after a lock screen or phone call.
-    <main className="drive" data-tone={tone} onPointerDown={unlockAudio}>
+    <main className="drive brand-kit" data-tone={tone} onPointerDown={unlockAudio}>
       <header className="drive-top">
         <div className={`voice-status ${view.voiceConnected && state.connected ? 'ok' : ''}`}>
           <span className="signal" aria-hidden="true">
@@ -122,19 +133,26 @@ export function Drive({ session, lang }: { session: DriveSession; lang: Lang }) 
           {title}
         </h1>
         <p className="status-sub">{subtitle}</p>
-        <p className={`talking ${talking.length || meTalking ? 'on' : ''}`} data-testid="talking">
-          <span className="talking-dot" aria-hidden="true" />
-          {talkLine}
-        </p>
+        {talkLine && (
+          <p className={`talking ${talking.length || meTalking ? 'on' : ''}`} data-testid="talking">
+            <span className="talking-dot" aria-hidden="true" />
+            {talkLine}
+          </p>
+        )}
         {tone === 'muted' && <p className="banner">{t.mutedBanner(say('unmute'))}</p>}
         {tone === 'deaf' && <p className="banner">{t.deafenedBanner(say('undeafen'))}</p>}
       </section>
 
       {state.connected && room && (
         <div className="avatar-grid" data-testid="avatar-grid">
+          {/* Her round tinted circle + car art, cream so it reads against any tint:
+              "you" gets an orange circle (not your own car color, so it never
+              blends in), everyone else a circle tinted with their own car color. */}
           <div className={`avatar-tile ${meTalking ? 'speaking' : ''}`}>
             <span className="badge">
-              <CarArt color={colorHex(profile.color)} size={56} title={profile.name} />
+              <span className="avatar-circle" style={{ background: '#f4682c' }}>
+                <CarArt color="#fffcee" size={40} title={profile.name} />
+              </span>
               {(state.selfMute || state.selfDeaf) && (
                 <span className="muted-badge" aria-hidden="true">
                   <MicIcon slashed />
@@ -146,8 +164,8 @@ export function Drive({ session, lang }: { session: DriveSession; lang: Lang }) 
           {others.slice(0, 3).map((m) => (
             <div key={m.id} className={`avatar-tile ${isSpeaking(m) ? 'speaking' : ''}`}>
               <span className="badge">
-                <span className="avatar big" style={{ color: colorHex(m.color) }}>
-                  <CarIcon />
+                <span className="avatar-circle" style={{ background: colorHex(m.color) }}>
+                  <CarArt color="#fffcee" size={40} title={m.name} />
                 </span>
                 {isMuted(m) && (
                   <span className="muted-badge" aria-hidden="true">
@@ -205,23 +223,17 @@ export function Drive({ session, lang }: { session: DriveSession; lang: Lang }) 
         </nav>
       ) : (
         <nav className="options">
-          <button className="option connect" aria-label={t.connect} onClick={() => send('connect')}>
-            <span className="option-cmd">
-              <PhoneIcon />
-              {say('connect')}
-            </span>
+          <button className="option" aria-label={t.connect} onClick={() => send('connect')}>
+            <span className="option-cmd">{say('connect')}</span>
             <span className="option-context">{connectContext}</span>
           </button>
           <button
-            className="option random"
+            className="option"
             aria-label={t.random}
             disabled={!view.randomAvailable}
             onClick={() => send('random')}
           >
-            <span className="option-cmd">
-              <ShuffleIcon />
-              {say('random')}
-            </span>
+            <span className="option-cmd">{say('random')}</span>
             {!view.randomAvailable && <span className="option-context">{t.notices['no-open-rooms']}</span>}
           </button>
         </nav>

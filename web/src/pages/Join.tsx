@@ -9,7 +9,8 @@ import {
   type PublicStats,
 } from '@roadies/shared';
 import { useEffect, useState } from 'react';
-import { CarIcon, GearIcon, PhoneIcon, ShuffleIcon } from '../components/icons';
+import { CarArt } from '../components/CarArt';
+import { GearIcon, Wordmark } from '../components/icons';
 import { unlockAudio } from '../lib/chimes';
 import { Intro } from '../intro/Intro';
 import { strings, type Strings } from '../lib/i18n';
@@ -121,13 +122,15 @@ export function Join({ mode, lang, profile, spot, kicker }: JoinProps) {
   if (!introDone) return <Intro onDone={() => setIntroDone(true)} />;
   if (session) return <Drive session={session} lang={lang} />;
 
+  // "Your jam"'s command cards have no live match preview yet (that only
+  // exists once a session is open, like Drive's disconnected screen) - both
+  // show the same honest placeholder Drive itself uses before it knows one.
+  const context = `${profile.name} · ${t.newRoom}`;
+
   return (
-    <main className="splash">
+    <main className="splash brand-kit">
       <div className="jam-top">
-        <div className="wordmark">
-          <img src="/favicon.svg" alt="" width={40} height={40} />
-          <span>Roadies</span>
-        </div>
+        <Wordmark />
         {mode === 'live' && (
           <a className="icon-btn" href="/setup" aria-label={t.settings}>
             <GearIcon />
@@ -136,43 +139,39 @@ export function Join({ mode, lang, profile, spot, kicker }: JoinProps) {
       </div>
 
       <div className="jam-card">
+        <div className="jam-cars" aria-hidden="true">
+          <CarArt color="#f4682c" size={44} />
+          <CarArt color="#fffcee" size={44} />
+        </div>
         <p className="kicker">{kicker}</p>
         {/* Always rendered, so the layout below doesn't shift when the count arrives. */}
         <p className="live-count">
-          {talking !== null && (
+          {!!talking && (
             <>
               <span className="live-dot" aria-hidden="true" />
-              {talking === 0 ? t.nobodyTalking : t.driversTalking(talking)}
+              {t.driversTalking(talking)}
             </>
           )}
         </p>
-        <div className="car-card">
-          <span className="avatar big" style={{ color: colorHex(profile.color) }}>
-            <CarIcon />
-          </span>
-          <div className="car-name">{t.youAre(profile.name)}</div>
-        </div>
       </div>
 
+      <p className="car-chip">
+        <CarArt color={colorHex(profile.color)} size={20} />
+        {t.youAre(profile.name)}
+      </p>
+
       <nav className="options">
-        <button className="option connect" aria-label={t.connect} disabled={!!pending} onClick={() => void join('connect')}>
-          <span className="option-cmd">
-            <PhoneIcon />
-            {t.quote(sayPhrase(lang, 'connect'))}
-          </span>
-          {pending === 'connect' && <span className="option-desc">{t.starting}</span>}
+        <button className="option" aria-label={t.connect} disabled={!!pending} onClick={() => void join('connect')}>
+          <span className="option-cmd">{t.quote(sayPhrase(lang, 'connect'))}</span>
+          <span className="option-context">{pending === 'connect' ? t.starting : context}</span>
         </button>
-        <button className="option random" aria-label={t.random} disabled={!!pending} onClick={() => void join('random')}>
-          <span className="option-cmd">
-            <ShuffleIcon />
-            {t.quote(sayPhrase(lang, 'random'))}
-          </span>
-          {pending === 'random' && <span className="option-desc">{t.starting}</span>}
+        <button className="option" aria-label={t.random} disabled={!!pending} onClick={() => void join('random')}>
+          <span className="option-cmd">{t.quote(sayPhrase(lang, 'random'))}</span>
+          <span className="option-context">{pending === 'random' ? t.starting : context}</span>
         </button>
       </nav>
 
       {error && <p className="notice error">{error}</p>}
-      <p className="fine">{t.privacy}</p>
     </main>
   );
 }

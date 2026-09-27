@@ -38,6 +38,7 @@
   color-scheme: light dark;
   background: var(--brand-bg);
   color: var(--brand-fg);
+  font-family: var(--brand-font-body);
 }
 
 /* Ink-based background, cream text, per the brief. Orange and teal are both

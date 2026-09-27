@@ -159,7 +159,8 @@ test('disconnect and connect by voice', async ({ browser, request }) => {
   await say(request, idA, 'disconnect');
   await expect(a.locator('.status-title')).toHaveText('Disconnected');
   await expect(a.getByTestId('hint')).toContainText('connect');
-  await expect(b.locator('.status-sub')).toHaveText('Just you so far — we’ll find you company');
+  // Room count, glanceable alone as with company - no "Just you so far" sentence.
+  await expect(b.locator('.status-sub')).toHaveText('1 roadies in this room');
   await expect.poll(() => subscribed(b)).toBe(0);
   // Still listening for "connect".
   expect(await listenerHears(request, idA)).toBe(true);
@@ -180,8 +181,6 @@ test('a French phone: French screen, and saying "coupe le micro" mutes it', asyn
   await expect(page.getByRole('button', { name: 'Connexion' })).toContainText('connexion');
   await page.getByRole('button', { name: 'Connexion' }).click();
   await expect(page.locator('.voice-status')).toHaveText(/Vocal connecté/);
-  // The hint strip (post-join) carries the French command phrases, mute's included.
-  await expect(page.getByTestId('hint')).toContainText('coupe le micro');
   await expect(page.locator('.banner')).toHaveText('MICRO COUPÉ · dis « active le micro »');
 
   // The listener hears this phone in French.
@@ -240,7 +239,7 @@ test('a lone commuter is merged into the nearest open room after 15 seconds', as
   await phone(browser, 'san-jose');
   const d = await phone(browser, 'san-jose');
   const loner = await phone(browser, 'loner');
-  await expect(loner.locator('.status-sub')).toHaveText('Just you so far — we’ll find you company');
+  await expect(loner.locator('.status-sub')).toHaveText('1 roadies in this room');
   // Free a seat in San Jose — but not down to exactly one active member, so it doesn't
   // start its own alone-timer — giving the loner somewhere to be merged into.
   await d.getByRole('button', { name: 'Disconnect' }).click();
@@ -293,7 +292,7 @@ test('normal mode: a random car is assigned on first open, no forced /setup; cus
   await page.goto(`${BASE}/`);
   // Your jam right away - never forced to /setup - with an auto-assigned car.
   await expect(page).toHaveURL(`${BASE}/`);
-  await expect(page.locator('.car-name')).toBeVisible();
+  await expect(page.locator('.car-chip')).toBeVisible();
 
   // Setup stays reachable any time from its gear icon.
   await page.getByRole('link', { name: 'Settings' }).click();

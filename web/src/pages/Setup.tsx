@@ -31,7 +31,7 @@ export function Setup() {
   };
 
   return (
-    <main className="setup">
+    <main className="setup brand-kit">
       <h1>{t.setupTitle}</h1>
       <p className="car-sub">{t.setupSub}</p>
 
