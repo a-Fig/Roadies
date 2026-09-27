@@ -20,7 +20,7 @@ Built by [Tyler Darisme](https://github.com/a-Fig) & [Opus5.5](https://www.anthr
 
 Each command is a whole utterance. Say the word by itself and the server applies it, the screen changes, and you hear Discord's own sound for it.
 
-| Commandds | What happens |
+| Commands | What happens |
 | --- | --- |
 | "mute" | The room stops hearing you. |
 | "unmute" | The room hears you again (and you're undeafened, like Discord). |
