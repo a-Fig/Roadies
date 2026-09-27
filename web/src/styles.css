@@ -189,21 +189,21 @@ body:has(.phone-shell) {
 }
 
 /* A laptop, tablet or projector-side browser: her 440px phone frame, centered
-   on an ink backdrop with a warm glow, never a stretched phone layout. */
+   on her cream (ink in dark mode) with a soft glow, never a stretched phone layout. */
 @media (min-width: 520px) and (min-height: 640px) {
   .phone-shell {
     background:
-      radial-gradient(60% 55% at 50% 38%, rgb(244 104 44 / 0.18), transparent 70%),
-      radial-gradient(70% 50% at 50% 105%, rgb(19 117 132 / 0.4), transparent 70%),
-      #2a1f1f;
+      radial-gradient(60% 55% at 50% 38%, rgb(244 104 44 / 0.1), transparent 70%),
+      radial-gradient(70% 50% at 50% 105%, rgb(19 117 132 / 0.12), transparent 70%),
+      #f6f0dc;
   }
   .phone {
     width: 440px;
     height: min(956px, calc(100dvh - 48px));
     border-radius: 44px;
     box-shadow:
-      0 0 0 10px #1a1313,
-      0 30px 80px rgb(0 0 0 / 0.5);
+      0 0 0 10px #2a1f1f,
+      0 30px 80px rgb(42 31 31 / 0.25);
   }
 }
 
