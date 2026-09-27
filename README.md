@@ -10,7 +10,11 @@ Open the web app and you get a car name, like "Teal Civic", and a seat in a voic
 
 **Try it: [roadies.afig.dev/demo](https://roadies.afig.dev/demo)** (a web page: nothing to install, no sign-up). Demo mode joins you muted: say "unmute" to talk.
 
-Built in 48 hours for a hackathon.
+Built in ~8 hours for a hackathon for [ShowerHacks by EF](https://luma.com/99857qk9?tk=jppxZQ)
+
+## Credits
+
+Built by [Tyler Darisme](https://github.com/a-Fig) & [Claude Opus 5.5](https://www.anthropic.com/claude). Brand & design by [@tthy-working](https://github.com/tthy-working). Sound cues were stolen from Discord and made by Esri (please don't sue me).
 
 ## What you can say
 
@@ -99,7 +103,3 @@ To use real phones and real voice recognition you need HTTPS, a LiveKit Cloud pr
 - **Phones in one room can cross-trigger.** Muted mics still reach the listener, so one person saying "unmute" next to several phones could unmute all of them.
 - **Languages are unreviewed.** The French, Spanish and Vietnamese phrases haven't been checked by native speakers, and a French or Vietnamese recognizer catches English commands poorly.
 - **Privacy.** Your audio reaches the server only to detect commands. It is never recorded.
-
-## Credits
-
-Built by [Tyler Darisme](https://github.com/a-Fig), pair-programming with [Claude Opus 5.5](https://www.anthropic.com/claude), which wrote much of the code and tests and was an excellent teammate for a 48-hour sprint. Brand, intro animation, car art and screen design by [@tthy-working](https://github.com/tthy-working). Sound cues are Discord's. Map tiles by Esri. The full product design and every decision behind it is in [DESIGN.md](DESIGN.md).
