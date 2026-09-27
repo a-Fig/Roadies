@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Roadies** (repo name: TrafficLive) is Discord-style, hands-free proximity voice chat for drivers stuck in the same jam, built as a hackathon demo on US-101 northbound. `DESIGN.md` is the source of truth for product decisions (every row of its §1 table was decided by the user); change the doc when you change a decision. `HANDOFF.md` has the current state and next steps.
+**Roadies** is Discord-style, hands-free proximity voice chat for drivers stuck in the same jam, built as a hackathon demo on US-101 northbound. `DESIGN.md` is the source of truth for product decisions (every row of its §1 table was decided by the user); change the doc when you change a decision. `HANDOFF.md` has the current state and next steps.
 
 ## Commands
 
