@@ -2,7 +2,7 @@
 Proximity chat for when we're stuck in traffic. (Repo name: TrafficLive.)
 
 Discord-style, hands-free **voice** rooms for drivers stuck in the same jam.
-Say `mute`, `unmute`, `deafen`, `undeafen`, `disconnect` or `connect`; no screen needed.
+Say `mute`, `unmute`, `deafen`, `undeafen`, `disconnect`, `connect` or `random`; no screen needed.
 
 See [DESIGN.md](DESIGN.md) for the full design and every decision behind it.
 
@@ -41,8 +41,9 @@ npm run fake-phones -- 3 hospital-curve   # force a spot
 
 ### Presenter keys
 
-`A` controls panel · `L` spawn a lone commuter (merges after 15 s) ·
-`M` mute everyone · `F` show the whole corridor · `R` reset the demo.
+`A` controls panel · `L` spawn a lone commuter (always starts its own room,
+even if another room has a free seat, so it's actually alone; merges after
+15 s) · `M` mute everyone · `F` show the whole corridor · `R` reset the demo.
 Click a car or member to mute it. `?join=https://…/demo` overrides the QR target.
 
 ## Real phones, real voice commands

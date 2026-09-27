@@ -13,7 +13,7 @@ describe('corridor', () => {
     expect(corridor.points.at(-1)!.lat).toBeGreaterThan(37.75);
   });
 
-  it('keeps every pair of jams more than 5.5 km apart, so they stay separate rooms', () => {
+  it('keeps every pair of jams more than 5.5 km apart, so they read as distinct places on the map', () => {
     for (let i = 0; i < JAMS.length; i++) {
       for (let j = i + 1; j < JAMS.length; j++) {
         const a = queuePoints(JAMS[i]!.headKm, JAMS[i]!.lengthKm);

@@ -4,13 +4,16 @@ import {
   type ClientMessage,
   type Command,
   type CommandSource,
+  type Lang,
   type LatLng,
   type Mode,
+  type NoticeCode,
   type RoomInfo,
   type ServerMessage,
   type VoiceState,
 } from '@roadies/shared';
 import { chimes } from './chimes';
+import { strings } from './i18n';
 import { clientId } from './identity';
 import { RoadiesSocket, type SocketStatus } from './socket';
 import { VoiceClient } from './voice';
@@ -20,6 +23,12 @@ export interface SessionView {
   profile: CarProfile;
   state: VoiceState;
   room: RoomInfo | null;
+  /** While disconnected: who "connect" would match with right now, or null for a new room. */
+  closest: { name: string; color: string; roomName: string } | null;
+  /** While disconnected: whether "random" has anywhere to jump to. */
+  randomAvailable: boolean;
+  /** A transient, non-fatal notice from the server (e.g. "random" had nowhere to go). */
+  notice: { code: NoticeCode; at: number } | null;
   /** LiveKit active speakers (identities), unfiltered. */
   speakers: string[];
   heard: { cmd: Command; source: CommandSource; at: number } | null;
@@ -31,6 +40,8 @@ export interface SessionView {
 
 export interface SessionOptions {
   mode: Mode;
+  /** UI language, and the language the server hears voice commands in. */
+  lang: Lang;
   profile: CarProfile;
   /** Demo: force a jam, e.g. "hospital-curve" or "loner". */
   spot?: string;
@@ -45,6 +56,16 @@ export class DriveSession {
   private readonly listeners = new Set<() => void>();
   private pos: LatLng | undefined;
   private view: SessionView;
+  /**
+   * A `connect`/`random` we just sent, awaiting the `assigned` it causes (the
+   * server now sends `assigned` before `state` for a move — see world.ts). The
+   * `state` handler already plays the right chime for it (`user_join` /
+   * `user_moved`); this just tells the `assigned` handler not to *also* play
+   * `moved()` for the same move.
+   */
+  private pendingMove: Command | null = null;
+  /** The error shown for the last failed voice join, cleared once voice connects. */
+  private voiceError: string | null = null;
 
   constructor(private readonly opts: SessionOptions) {
     this.pos = opts.pos;
@@ -54,6 +75,9 @@ export class DriveSession {
       // What the server will send in its welcome, so a demo phone never flashes "live".
       state: joinState(opts.mode),
       room: null,
+      closest: null,
+      randomAvailable: false,
+      notice: null,
       speakers: [],
       heard: null,
       socket: 'connecting',
@@ -88,6 +112,7 @@ export class DriveSession {
   }
 
   command(cmd: Command): void {
+    if (cmd === 'connect' || cmd === 'random') this.pendingMove = cmd;
     this.socket.send({ t: 'cmd', cmd });
   }
 
@@ -104,6 +129,7 @@ export class DriveSession {
       profile: this.opts.profile,
       spot: this.opts.spot,
       pos: this.pos,
+      lang: this.opts.lang,
     };
   }
 
@@ -114,16 +140,22 @@ export class DriveSession {
         break;
       case 'assigned': {
         const previous = this.view.room;
-        if (previous && previous.id !== msg.room.id) chimes.moved();
+        // A self-initiated connect/random gets exactly one chime, played by
+        // the `state` handler below (user_join / user_moved) — don't also
+        // play the passive-move `moved()` sound for the same room switch.
+        if (previous && previous.id !== msg.room.id && !this.pendingMove) chimes.moved();
+        this.pendingMove = null;
         this.update({ room: msg.room });
         this.voice
           .join(msg.room.id, msg.livekit, this.view.state)
           .then(() => {
-            if (this.view.error?.startsWith('Voice connection failed')) this.update({ error: null });
+            if (this.voiceError !== null && this.view.error === this.voiceError) this.update({ error: null });
+            this.voiceError = null;
           })
           .catch((err: Error) => {
             console.error(err);
-            this.update({ error: `Voice connection failed: ${err.message}` });
+            this.voiceError = `${strings(this.opts.lang).voiceFailed}: ${err.message}`;
+            this.update({ error: this.voiceError });
           });
         break;
       }
@@ -150,11 +182,25 @@ export class DriveSession {
         break;
       case 'reset':
         void this.voice.leave();
-        this.update({ room: null, state: joinState(this.opts.mode), speakers: [], heard: null });
+        this.update({
+          room: null,
+          state: joinState(this.opts.mode),
+          speakers: [],
+          heard: null,
+          closest: null,
+          randomAvailable: false,
+          notice: null,
+        });
         this.socket.send(this.hello());
         break;
       case 'error':
         this.update({ error: msg.message });
+        break;
+      case 'closest':
+        this.update({ closest: msg.match, randomAvailable: msg.randomAvailable });
+        break;
+      case 'notice':
+        this.update({ notice: { code: msg.code, at: Date.now() } });
         break;
     }
   }

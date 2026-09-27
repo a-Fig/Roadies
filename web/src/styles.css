@@ -506,6 +506,24 @@ a {
   font-size: 2.6rem;
 }
 
+/* Longer labels in other languages ("Activer le micro") wrap inside the button. */
+.ctl span {
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+/* A single word too long for the button ("Déconnexion", "Desconectar") shrinks to fit
+   instead of breaking mid-word. cqi is 1% of the button's width. */
+.ctl {
+  container-type: inline-size;
+}
+
+.ctl span.long {
+  font-size: min(1rem, 15cqi);
+}
+
 .ctl:active:not(:disabled) {
   transform: scale(0.97);
 }
@@ -521,6 +539,60 @@ a {
 .ctl.connect {
   grid-column: span 1;
   background: var(--go-strong);
+}
+
+.options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.option {
+  min-height: 116px;
+  border-radius: 22px;
+  background: var(--bg-button);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 5px;
+  padding: 14px 16px;
+  text-align: left;
+  color: var(--header);
+  transition:
+    background 0.15s,
+    transform 0.08s;
+}
+
+.option:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.option.connect {
+  background: var(--go-strong);
+}
+
+.option-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.option-cmd svg {
+  font-size: 1.3rem;
+}
+
+.option-desc {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.option-context {
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
 @keyframes pulse {

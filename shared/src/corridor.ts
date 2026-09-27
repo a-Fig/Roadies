@@ -71,7 +71,8 @@ export interface Jam {
 
 /**
  * Demo jams at real 101 NB morning choke points. Spaced so that no two queues
- * come within 5 km of each other, which keeps them in separate rooms.
+ * come within 5 km of each other, so they read as distinct places on the map.
+ * (Room assignment itself is by capacity only, at any distance — see matchmaker.ts.)
  */
 export const JAMS: readonly Jam[] = [
   { id: 'san-jose', name: 'San Jose 101/880', headKm: 50.0, lengthKm: 1.2 },

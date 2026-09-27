@@ -124,8 +124,8 @@ export function Presenter() {
                   <SpeakerIcon />
                   <span className="dot" style={{ background: roomColor(room.id) }} />
                   <span className="label">{room.name}</span>
-                  <span className={`count ${room.activeCount >= (snapshot?.capacity ?? 8) ? 'full' : ''}`}>
-                    {room.activeCount}/{snapshot?.capacity ?? 8}
+                  <span className={`count ${room.activeCount >= (snapshot?.capacity ?? 4) ? 'full' : ''}`}>
+                    {room.activeCount}/{snapshot?.capacity ?? 4}
                   </span>
                 </button>
                 {room.mergeInMs !== null && (
