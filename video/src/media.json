@@ -1,0 +1,851 @@
+{
+  "voices": {
+    "n-intro": {
+      "hash": "a118eb1e5845",
+      "spoken": "Yep. That's me. You're probably wondering how I ended up on a call with three strangers.",
+      "duration": 4.989,
+      "words": [
+        {
+          "text": "Yep.",
+          "start": 0.1,
+          "end": 0.28
+        },
+        {
+          "text": "That's",
+          "start": 0.58,
+          "end": 0.8
+        },
+        {
+          "text": "me.",
+          "start": 0.86,
+          "end": 1.04
+        },
+        {
+          "text": "You're",
+          "start": 1.76,
+          "end": 1.84
+        },
+        {
+          "text": "probably",
+          "start": 1.88,
+          "end": 2.16
+        },
+        {
+          "text": "wondering",
+          "start": 2.2,
+          "end": 2.54
+        },
+        {
+          "text": "how",
+          "start": 2.58,
+          "end": 2.7
+        },
+        {
+          "text": "I",
+          "start": 2.76,
+          "end": 2.8
+        },
+        {
+          "text": "ended",
+          "start": 2.84,
+          "end": 3.02
+        },
+        {
+          "text": "up",
+          "start": 3.08,
+          "end": 3.16
+        },
+        {
+          "text": "on",
+          "start": 3.2,
+          "end": 3.24
+        },
+        {
+          "text": "a",
+          "start": 3.28,
+          "end": 3.34
+        },
+        {
+          "text": "call",
+          "start": 3.4,
+          "end": 3.62
+        },
+        {
+          "text": "with",
+          "start": 3.66,
+          "end": 3.78
+        },
+        {
+          "text": "three",
+          "start": 3.8,
+          "end": 3.94
+        },
+        {
+          "text": "strangers.",
+          "start": 4.059,
+          "end": 4.58
+        }
+      ]
+    },
+    "n-earlier": {
+      "hash": "2b6e3b0e555d",
+      "spoken": "Forty minutes earlier. I had moved... six feet.",
+      "duration": 4.754,
+      "words": [
+        {
+          "text": "Forty",
+          "start": 0.1,
+          "end": 0.34
+        },
+        {
+          "text": "minutes",
+          "start": 0.44,
+          "end": 0.68
+        },
+        {
+          "text": "earlier.",
+          "start": 0.74,
+          "end": 1.1
+        },
+        {
+          "text": "I",
+          "start": 2.22,
+          "end": 2.26
+        },
+        {
+          "text": "had",
+          "start": 2.28,
+          "end": 2.4
+        },
+        {
+          "text": "moved...",
+          "start": 2.44,
+          "end": 2.74
+        },
+        {
+          "text": "six",
+          "start": 3.62,
+          "end": 3.8
+        },
+        {
+          "text": "feet.",
+          "start": 3.88,
+          "end": 4.1
+        }
+      ]
+    },
+    "prius-tuesday": {
+      "hash": "91e049e2ed0f",
+      "spoken": "We have not moved. Since Tuesday.",
+      "duration": 2.769,
+      "words": [
+        {
+          "text": "We",
+          "start": 0.16,
+          "end": 0.24
+        },
+        {
+          "text": "have",
+          "start": 0.26,
+          "end": 0.4
+        },
+        {
+          "text": "not",
+          "start": 0.44,
+          "end": 0.64
+        },
+        {
+          "text": "moved.",
+          "start": 0.7,
+          "end": 1.14
+        },
+        {
+          "text": "Since",
+          "start": 1.98,
+          "end": 2.2
+        },
+        {
+          "text": "Tuesday.",
+          "start": 2.24,
+          "end": 2.68
+        }
+      ]
+    },
+    "tacoma-kid": {
+      "hash": "7d632d11bc8c",
+      "spoken": "My kid just asked if we live here now.",
+      "duration": 2.038,
+      "words": [
+        {
+          "text": "My",
+          "start": 0.16,
+          "end": 0.3
+        },
+        {
+          "text": "kid",
+          "start": 0.36,
+          "end": 0.52
+        },
+        {
+          "text": "just",
+          "start": 0.58,
+          "end": 0.72
+        },
+        {
+          "text": "asked",
+          "start": 0.8,
+          "end": 0.98
+        },
+        {
+          "text": "if",
+          "start": 1.04,
+          "end": 1.14
+        },
+        {
+          "text": "we",
+          "start": 1.18,
+          "end": 1.26
+        },
+        {
+          "text": "live",
+          "start": 1.38,
+          "end": 1.56
+        },
+        {
+          "text": "here",
+          "start": 1.6,
+          "end": 1.78
+        },
+        {
+          "text": "now.",
+          "start": 1.82,
+          "end": 1.98
+        }
+      ]
+    },
+    "hero-unmute": {
+      "hash": "061374f2c64d",
+      "spoken": "Unmute.",
+      "duration": 0.679,
+      "words": [
+        {
+          "text": "Unmute.",
+          "start": 0.12,
+          "end": 0.56
+        }
+      ]
+    },
+    "hero-hi": {
+      "hash": "4e2ac6ab2414",
+      "spoken": "Hi. Teal Civic. Also not moving.",
+      "duration": 3.788,
+      "words": [
+        {
+          "text": "Hi.",
+          "start": 0.14,
+          "end": 0.42
+        },
+        {
+          "text": "Teal",
+          "start": 1.22,
+          "end": 1.38
+        },
+        {
+          "text": "Civic.",
+          "start": 1.46,
+          "end": 1.8
+        },
+        {
+          "text": "Also",
+          "start": 2.62,
+          "end": 2.94
+        },
+        {
+          "text": "not",
+          "start": 3.2,
+          "end": 3.42
+        },
+        {
+          "text": "moving.",
+          "start": 3.46,
+          "end": 3.72
+        }
+      ]
+    },
+    "prius-hey": {
+      "hash": "112cb273d2b2",
+      "spoken": "Hey.",
+      "duration": 0.758,
+      "words": [
+        {
+          "text": "Hey.",
+          "start": 0.16,
+          "end": 0.44
+        }
+      ]
+    },
+    "tacoma-hey": {
+      "hash": "510d7f04c8ce",
+      "spoken": "Heyyy!",
+      "duration": 0.914,
+      "words": [
+        {
+          "text": "Heyyy!",
+          "start": 0.18,
+          "end": 0.78
+        }
+      ]
+    },
+    "miata-hey": {
+      "hash": "f8588e07a1d5",
+      "spoken": "Heyyyy!",
+      "duration": 1.071,
+      "words": [
+        {
+          "text": "Heyyyy!",
+          "start": 0.18,
+          "end": 0.74
+        }
+      ]
+    },
+    "miata-sushi": {
+      "hash": "006c7560bdbb",
+      "spoken": "Okay, DON'T mute me, I need to tell you all about my gas station sushi.",
+      "duration": 4.754,
+      "words": [
+        {
+          "text": "Okay,",
+          "start": 0.14,
+          "end": 0.46
+        },
+        {
+          "text": "DON'T",
+          "start": 0.68,
+          "end": 1
+        },
+        {
+          "text": "mute",
+          "start": 1.04,
+          "end": 1.28
+        },
+        {
+          "text": "me,",
+          "start": 1.32,
+          "end": 1.5
+        },
+        {
+          "text": "I",
+          "start": 1.74,
+          "end": 1.8
+        },
+        {
+          "text": "need",
+          "start": 1.84,
+          "end": 1.96
+        },
+        {
+          "text": "to",
+          "start": 2,
+          "end": 2.1
+        },
+        {
+          "text": "tell",
+          "start": 2.14,
+          "end": 2.32
+        },
+        {
+          "text": "you",
+          "start": 2.38,
+          "end": 2.64
+        },
+        {
+          "text": "all",
+          "start": 2.74,
+          "end": 2.96
+        },
+        {
+          "text": "about",
+          "start": 3.02,
+          "end": 3.24
+        },
+        {
+          "text": "my",
+          "start": 3.28,
+          "end": 3.5
+        },
+        {
+          "text": "gas",
+          "start": 3.54,
+          "end": 3.76
+        },
+        {
+          "text": "station",
+          "start": 3.82,
+          "end": 4.14
+        },
+        {
+          "text": "sushi.",
+          "start": 4.28,
+          "end": 4.68
+        }
+      ]
+    },
+    "prius-mute": {
+      "hash": "a7304cef309e",
+      "spoken": "Mute.",
+      "duration": 1.149,
+      "words": [
+        {
+          "text": "Mute.",
+          "start": 0.08,
+          "end": 0.36
+        }
+      ]
+    },
+    "miata-sushi2": {
+      "hash": "81381e1e0eb9",
+      "spoken": "Okay, back to the sushi. So it was... warm?",
+      "duration": 5.329,
+      "words": [
+        {
+          "text": "Okay,",
+          "start": 0.16,
+          "end": 0.5
+        },
+        {
+          "text": "back",
+          "start": 0.76,
+          "end": 0.96
+        },
+        {
+          "text": "to",
+          "start": 1,
+          "end": 1.08
+        },
+        {
+          "text": "the",
+          "start": 1.12,
+          "end": 1.16
+        },
+        {
+          "text": "sushi.",
+          "start": 1.22,
+          "end": 1.6
+        },
+        {
+          "text": "So",
+          "start": 2.72,
+          "end": 3.02
+        },
+        {
+          "text": "it",
+          "start": 3.12,
+          "end": 3.28
+        },
+        {
+          "text": "was...",
+          "start": 3.34,
+          "end": 4.1
+        },
+        {
+          "text": "warm?",
+          "start": 4.86,
+          "end": 5.26
+        }
+      ]
+    },
+    "prius-disconnect": {
+      "hash": "2998a98680d5",
+      "spoken": "Disconnect.",
+      "duration": 1.724,
+      "words": [
+        {
+          "text": "Disconnect.",
+          "start": 0.06,
+          "end": 0.76
+        }
+      ]
+    },
+    "mustang-hello": {
+      "hash": "4d955f18585d",
+      "spoken": "...Hello??",
+      "duration": 1.724,
+      "words": [
+        {
+          "text": "...Hello??",
+          "start": 0.08,
+          "end": 0.56
+        }
+      ]
+    },
+    "miata-newperson": {
+      "hash": "b9aac6ff8e34",
+      "spoken": "Oh my god, new person! Okay, so the sushi—",
+      "duration": 3.318,
+      "words": [
+        {
+          "text": "Oh",
+          "start": 0.12,
+          "end": 0.2
+        },
+        {
+          "text": "my",
+          "start": 0.26,
+          "end": 0.36
+        },
+        {
+          "text": "god,",
+          "start": 0.44,
+          "end": 0.7
+        },
+        {
+          "text": "new",
+          "start": 0.78,
+          "end": 0.9
+        },
+        {
+          "text": "person!",
+          "start": 1,
+          "end": 1.52
+        },
+        {
+          "text": "Okay,",
+          "start": 1.88,
+          "end": 2.08
+        },
+        {
+          "text": "so",
+          "start": 2.24,
+          "end": 2.34
+        },
+        {
+          "text": "the",
+          "start": 2.38,
+          "end": 2.5
+        },
+        {
+          "text": "sushi—",
+          "start": 2.58,
+          "end": 3.06
+        }
+      ]
+    },
+    "n-ending": {
+      "hash": "9342b5221d79",
+      "spoken": "Traffic didn't move once. Best commute of my life.",
+      "duration": 4.441,
+      "words": [
+        {
+          "text": "Traffic",
+          "start": 0.12,
+          "end": 0.42
+        },
+        {
+          "text": "didn't",
+          "start": 0.46,
+          "end": 0.66
+        },
+        {
+          "text": "move",
+          "start": 0.7,
+          "end": 0.9
+        },
+        {
+          "text": "once.",
+          "start": 1,
+          "end": 1.32
+        },
+        {
+          "text": "Best",
+          "start": 3.16,
+          "end": 3.34
+        },
+        {
+          "text": "commute",
+          "start": 3.42,
+          "end": 3.66
+        },
+        {
+          "text": "of",
+          "start": 3.7,
+          "end": 3.74
+        },
+        {
+          "text": "my",
+          "start": 3.78,
+          "end": 3.96
+        },
+        {
+          "text": "life.",
+          "start": 4,
+          "end": 4.32
+        }
+      ]
+    },
+    "n-nerds": {
+      "hash": "89b33eb494bf",
+      "spoken": "Part two, for the nerds. Every room has a hidden bot listening to every mic. Google turns what you say into commands. And mute doesn't turn your mic off. It just means only the bot can hear you. That's how it still catches unmute.",
+      "duration": 14.028,
+      "words": [
+        {
+          "text": "Part",
+          "start": 0.12,
+          "end": 0.36
+        },
+        {
+          "text": "two,",
+          "start": 0.4,
+          "end": 0.7
+        },
+        {
+          "text": "for",
+          "start": 1.04,
+          "end": 1.14
+        },
+        {
+          "text": "the",
+          "start": 1.18,
+          "end": 1.26
+        },
+        {
+          "text": "nerds.",
+          "start": 1.3,
+          "end": 1.72
+        },
+        {
+          "text": "Every",
+          "start": 2.24,
+          "end": 2.48
+        },
+        {
+          "text": "room",
+          "start": 2.54,
+          "end": 2.78
+        },
+        {
+          "text": "has",
+          "start": 2.82,
+          "end": 2.94
+        },
+        {
+          "text": "a",
+          "start": 3,
+          "end": 3.04
+        },
+        {
+          "text": "hidden",
+          "start": 3.08,
+          "end": 3.3
+        },
+        {
+          "text": "bot",
+          "start": 3.4,
+          "end": 3.68
+        },
+        {
+          "text": "listening",
+          "start": 3.72,
+          "end": 4.12
+        },
+        {
+          "text": "to",
+          "start": 4.14,
+          "end": 4.26
+        },
+        {
+          "text": "every",
+          "start": 4.34,
+          "end": 4.54
+        },
+        {
+          "text": "mic.",
+          "start": 4.64,
+          "end": 4.92
+        },
+        {
+          "text": "Google",
+          "start": 5.42,
+          "end": 5.72
+        },
+        {
+          "text": "turns",
+          "start": 5.86,
+          "end": 6.12
+        },
+        {
+          "text": "what",
+          "start": 6.16,
+          "end": 6.28
+        },
+        {
+          "text": "you",
+          "start": 6.32,
+          "end": 6.44
+        },
+        {
+          "text": "say",
+          "start": 6.48,
+          "end": 6.76
+        },
+        {
+          "text": "into",
+          "start": 6.82,
+          "end": 6.98
+        },
+        {
+          "text": "commands.",
+          "start": 7.02,
+          "end": 7.54
+        },
+        {
+          "text": "And",
+          "start": 7.96,
+          "end": 8.1
+        },
+        {
+          "text": "mute",
+          "start": 8.18,
+          "end": 8.42
+        },
+        {
+          "text": "doesn't",
+          "start": 8.46,
+          "end": 8.7
+        },
+        {
+          "text": "turn",
+          "start": 8.74,
+          "end": 8.92
+        },
+        {
+          "text": "your",
+          "start": 8.96,
+          "end": 9.04
+        },
+        {
+          "text": "mic",
+          "start": 9.08,
+          "end": 9.3
+        },
+        {
+          "text": "off.",
+          "start": 9.38,
+          "end": 9.68
+        },
+        {
+          "text": "It",
+          "start": 9.88,
+          "end": 9.96
+        },
+        {
+          "text": "just",
+          "start": 10.04,
+          "end": 10.18
+        },
+        {
+          "text": "means",
+          "start": 10.24,
+          "end": 10.56
+        },
+        {
+          "text": "only",
+          "start": 10.62,
+          "end": 10.86
+        },
+        {
+          "text": "the",
+          "start": 10.9,
+          "end": 11
+        },
+        {
+          "text": "bot",
+          "start": 11.02,
+          "end": 11.24
+        },
+        {
+          "text": "can",
+          "start": 11.34,
+          "end": 11.48
+        },
+        {
+          "text": "hear",
+          "start": 11.52,
+          "end": 11.74
+        },
+        {
+          "text": "you.",
+          "start": 11.8,
+          "end": 11.92
+        },
+        {
+          "text": "That's",
+          "start": 12.34,
+          "end": 12.52
+        },
+        {
+          "text": "how",
+          "start": 12.54,
+          "end": 12.64
+        },
+        {
+          "text": "it",
+          "start": 12.66,
+          "end": 12.74
+        },
+        {
+          "text": "still",
+          "start": 12.78,
+          "end": 12.98
+        },
+        {
+          "text": "catches",
+          "start": 13.04,
+          "end": 13.44
+        },
+        {
+          "text": "unmute.",
+          "start": 13.5,
+          "end": 13.96
+        }
+      ]
+    }
+  },
+  "sfx": {
+    "scratch": {
+      "hash": "a7191eb910e7",
+      "duration": 1.045
+    },
+    "rewind": {
+      "hash": "5387a0966882",
+      "duration": 1.646
+    },
+    "boom": {
+      "hash": "af07c8b15464",
+      "duration": 1.228
+    },
+    "violin": {
+      "hash": "a849198c767f",
+      "duration": 3.527
+    },
+    "whoosh": {
+      "hash": "75449b899756",
+      "duration": 0.836
+    },
+    "tick": {
+      "hash": "b4bd8fcbf91f",
+      "duration": 3.03
+    },
+    "pop": {
+      "hash": "bc22b5cf397d",
+      "duration": 0.522
+    },
+    "horn": {
+      "hash": "e853e0c5eb0d",
+      "duration": 0.731
+    },
+    "traffic": {
+      "hash": "869be672fe1a",
+      "duration": 12.042
+    }
+  }
+}

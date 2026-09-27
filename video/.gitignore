@@ -1,0 +1,4 @@
+node_modules/
+out/
+# Generated media: voices (ElevenLabs), app captures (Playwright). Rebuilt by the tools.
+public/gen/

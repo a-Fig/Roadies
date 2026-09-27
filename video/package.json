@@ -1,0 +1,27 @@
+{
+  "name": "@roadies/video",
+  "private": true,
+  "type": "module",
+  "description": "The Roadies demo reel (Remotion). Standalone: not an npm workspace, so the app's install and Docker image never pull in Remotion.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Reel out/roadies-reel.mp4",
+    "still": "remotion still src/index.ts Reel",
+    "voices": "tsx --env-file-if-exists=../.env tools/voices.ts",
+    "capture": "tsx --env-file-if-exists=../.env tools/capture.ts",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.529",
+    "@remotion/google-fonts": "4.0.529",
+    "@remotion/media-utils": "4.0.529",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.529"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}
