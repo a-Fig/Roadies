@@ -18,8 +18,6 @@ Built by [Tyler Darisme](https://github.com/a-Fig) & [Opus5.5](https://www.anthr
 
 ## What you can say
 
-Each command is a whole utterance. Say the word by itself and the server applies it, the screen changes, and you hear Discord's own sound for it.
-
 | Commands | What happens |
 | --- | --- |
 | "mute" | The room stops hearing you. |
