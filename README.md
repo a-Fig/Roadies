@@ -1,117 +1,105 @@
+<p align="center">
+  <img src="docs/images/hero.png" alt="Roadies: three phone screens showing a jam card, a live voice room and a muted voice room" width="100%">
+</p>
+
 # Roadies
-Proximity chat for when we're stuck in traffic. (Repo name: TrafficLive.)
 
-Discord-style, hands-free **voice** rooms for drivers stuck in the same jam.
-Say `mute`, `unmute`, `deafen`, `undeafen`, `disconnect`, `connect` or `random`; no screen needed.
+**Hands-free voice chat for drivers stuck in the same traffic jam.**
 
-See [DESIGN.md](DESIGN.md) for the full design and every decision behind it.
+Open the web app and you get a car name, like "Teal Civic", and a seat in a voice room with up to three of the drivers nearest you on the road. It works like a Discord voice channel for your stretch of highway, except you control it by voice: say **"mute"**, **"deafen"** or **"disconnect"** out loud and it happens, without touching the phone.
 
-| URL | What |
+**Try it: [roadies.afig.dev/demo](https://roadies.afig.dev/demo)** (a web page: nothing to install, no sign-up). Demo mode joins you muted: say "unmute" to talk.
+
+Built in 48 hours for a hackathon.
+
+## What you can say
+
+Each command is a whole utterance. Say the word by itself and the server applies it, the screen changes, and you hear Discord's own sound for it.
+
+| You say | What happens |
 | --- | --- |
-| `/demo` | Hackathon demo: random car, simulated spot on US-101 NB. `?spot=hospital-curve` / `sfo` / `loner` … forces a spot. |
-| `/` | Normal mode: set up your car once (`/setup`), then drive with real GPS. |
-| `/presenter?key=demo` | Projector: channel list, live map, QR code. Press **A** for presenter controls. |
+| "mute" | The room stops hearing you. |
+| "unmute" | The room hears you again (and you're undeafened, like Discord). |
+| "deafen" | You stop hearing the room; your mic is cut too. |
+| "undeafen" | You hear the room again. |
+| "disconnect" | You leave the room. The app keeps listening for the next two. |
+| "connect" | You join the closest driver with a free seat, right now. |
+| "random" | You jump to a random open room somewhere else on the road. |
+
+"Don't mute me" does nothing: the whole utterance has to be the command, so normal conversation never triggers one. The same commands work in French, Spanish and Vietnamese ("coupe le micro", "apaga el micro", "tắt mic").
+
+## Three pages
+
+| Page | What it is |
+| --- | --- |
+| [`/`](https://roadies.afig.dev/) | The real app. It uses your phone's GPS and puts you in a room with whoever is actually near you. |
+| [`/demo`](https://roadies.afig.dev/demo) | A simulated commute: you become a car at one of seven real choke points on US-101 (Hospital Curve, SFO, Palo Alto, …), inching north along the real highway. |
+| `/presenter` | The big screen: a live map of the corridor with cars colored by room and pulsing while they talk, next to a Discord-style channel list and a QR code to join. |
+
+<p align="center">
+  <img src="docs/images/presenter.jpg" alt="Projector view: map of US-101 with cars colored by room and a channel list" width="100%">
+</p>
+
+## How it works
+
+```
+ phone (web app) ──WebSocket: hello, button presses──▶ Node server ◀── Google Speech-to-Text
+       │                                                    │   ▲
+       └──────── voice (WebRTC) ──▶ LiveKit room ◀── hidden listener (one per room)
+```
+
+**The server hears you even when the room can't.** The obvious way to mute is to stop sending your mic. Then nobody could hear you say "unmute". So the phone always publishes its mic, and "muted" means LiveKit's track-subscription permissions allow exactly one subscriber: a hidden listener participant the server runs in every room. "Disconnect" works the same way: you leave the roster and hear nothing, but the listener still hears you say "connect".
+
+**Recognizing one word in a car.** The listener feeds each driver's audio (16 kHz) through an energy-based speech gate and opens one short Google Speech-to-Text stream per utterance, with the seven command words boosted as phrase hints. It checks Google's top five guesses, but a lower guess only counts when the top guess is short (two words at most, or no longer than the command), so "mute the radio" never becomes "mute".
+
+**One path for buttons and voice.** A tap and a spoken command go through the same state machine on the server, which owns every driver's room and mute/deafen state and pushes the result to the phone. The phone never decides anything, so buttons and voice can't disagree.
+
+**Matchmaking.** You join the room whose nearest active driver is closest to you (haversine distance) and has a free seat out of four; otherwise you open a new room, named after the nearest landmark (`Hospital Curve #2`). Rooms are sticky as traffic moves. A driver left alone for 15 seconds is merged into the closest open room.
+
+**Tested at the audio level.** 108 Vitest tests cover matchmaking, the command parser in all four languages, the speech gate and the whole server driven by a fake clock. 13 Playwright tests run real Chromium "phones" with fake microphones through a local LiveKit server and check that mute, deafen and disconnect really cut you off from the room while the hidden listener still receives your mic. GitHub Actions runs all of it on every pull request.
+
+**Stack:** TypeScript end to end (Node 22, npm workspaces), React + Vite, LiveKit for voice (LiveKit Cloud in production), Google Speech-to-Text, Leaflet for the map, one Google Cloud Run instance with all state in memory.
 
 ## Run it locally
 
-Needs Node 22+.
+You need Node 22 or newer, Git, and ports 5173, 7880 and 8080 free. On Windows, use Git Bash. On macOS, run `brew install livekit` first.
 
-```sh
-npm install
-brew install livekit        # macOS; on Linux and Windows (Git Bash) the script downloads it
-npm run dev                 # LiveKit (dev mode) + server :8080 + web :5173
-```
+1. Install and start everything:
 
-Open <http://localhost:5173/presenter?key=demo> and a few tabs of
-<http://localhost:5173/demo> (each tab is its own car). With no `.env`, voice
-runs on the local LiveKit server and spoken commands come from the **fake
-recognizer**: make a car "say" something with
-
-```sh
-curl -X POST localhost:8080/dev/say -H 'content-type: application/json' \
-  -d '{"name":"Teal Civic","text":"mute"}'
-```
-
-Fill the demo with talking fake phones (they beep instead of speaking):
-
-```sh
-npm run fake-phones -- 12                 # scripted spots, like real joiners
-npm run fake-phones -- 3 hospital-curve   # force a spot
-```
-
-### Presenter keys
-
-`A` controls panel · `L` spawn a lone commuter (always starts its own room,
-even if another room has a free seat, so it's actually alone; merges after
-15 s) · `M` mute everyone · `F` show the whole corridor · `R` reset the demo.
-Click a car or member to mute it. `?join=https://…/demo` overrides the QR target.
-
-## Real phones, real voice commands
-
-Phones need HTTPS for the microphone, and an HTTPS page can't use the local
-`ws://` LiveKit server, so use LiveKit Cloud:
-
-1. Create a LiveKit Cloud project; copy `.env.example` to `.env` and set
-   `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`.
-2. Google Speech-to-Text:
    ```sh
-   gcloud services enable speech.googleapis.com
-   gcloud auth application-default login
-   gcloud auth application-default set-quota-project YOUR_PROJECT
+   git clone https://github.com/a-Fig/TrafficLive.git roadies
+   cd roadies
+   npm install
+   npm run dev
    ```
-   then set `RECOGNIZER=google` (and `LOG_TRANSCRIPTS=1` while tuning) in `.env`.
-3. `npm run dev:app` (server + web, no local LiveKit), then expose the web app:
-   `cloudflared tunnel --url http://localhost:5173` (or `ngrok http 5173`) and open
-   the tunnel URL's `/demo` on your phone.
 
-## Tests
+   This starts three processes in one terminal: a local LiveKit voice server on port 7880 (downloaded into `.livekit/` on first run on Linux and Windows), the app server on 8080, and the web app on 5173. It needs no accounts, API keys or `.env` file. It's ready when Vite prints its local URL.
 
-```sh
-npm test            # unit tests (matchmaker, voice commands, speech gate, world)
-npm run typecheck
-npm run e2e         # Playwright: real Chromium phones + local LiveKit + server
-```
+2. Open the projector at <http://localhost:5173/presenter?key=demo>. Then open <http://localhost:5173/demo> in two or three more tabs, tap the intro to skip it, and tap **Connect**. Allow the microphone when the browser asks. Every tab is a separate car; the first four land in the same room at Hospital Curve, and the projector shows them there.
 
-## CI
+3. Your local copy has no speech recognition, so type what a driver says instead. Demo cars join muted; unmute one by name (pick any name from the projector's channel list):
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on
-push to `main`, on `ubuntu-latest` with Node 22:
+   ```sh
+   curl -X POST localhost:8080/dev/say -H 'content-type: application/json' \
+     -d '{"name":"Teal Civic","text":"unmute"}'
+   ```
 
-- **check**: `npm ci`, `npm run typecheck`, `npm test`, `npm run build`.
-- **e2e**: `npm ci`, installs Chromium via Playwright, then `npm run e2e`
-  against a local LiveKit dev server and the app server with `RECOGNIZER=fake`
-  — no secrets or `.env` needed. On failure the HTML report and traces upload
-  as the `playwright-report` artifact.
+   That tab plays the unmute sound and its muted badge disappears in every tab. Try `deafen`, `disconnect` and `connect` the same way.
 
-Both jobs run in parallel to keep wall time down. A new push to the same
-branch/PR cancels the previous run.
+4. Optional: `npm run fake-phones -- 12` adds twelve phones that beep instead of talking, to fill the map.
 
-## Deploy (Google Cloud Run)
+To run the tests: `npm test` (unit), and `npx playwright install chromium` once, then `npm run e2e` (end to end; stop `npm run dev` first so the tests start fresh servers).
 
-One always-on instance: all state is in memory, and the command listener runs
-continuously.
+To use real phones and real voice recognition you need HTTPS, a LiveKit Cloud project and Google Speech-to-Text: see [docs/deploy.md](docs/deploy.md).
 
-```sh
-PROJECT=your-project
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
-  artifactregistry.googleapis.com speech.googleapis.com --project $PROJECT
-# Let the runtime service account call Speech-to-Text.
-SA=$(gcloud projects describe $PROJECT --format='value(projectNumber)')-compute@developer.gserviceaccount.com
-gcloud projects add-iam-policy-binding $PROJECT --member serviceAccount:$SA --role roles/speech.client
+## Limits
 
-gcloud run deploy roadies --source . --project $PROJECT --region us-west1 \
-  --allow-unauthenticated --min-instances 1 --max-instances 1 \
-  --no-cpu-throttling --timeout 3600 --session-affinity \
-  --set-env-vars LIVEKIT_URL=wss://your-project.livekit.cloud,LIVEKIT_API_KEY=...,LIVEKIT_API_SECRET=...,PRESENTER_KEY=pick-something
-```
+- **Keep the app on screen.** Mobile browsers pause WebRTC when the tab goes to the background, for example behind Google Maps. Roadies holds a screen wake lock instead. Real background audio needs a native app (CallKit on iOS, a foreground service on Android); that's the next step.
+- **Hackathon scope.** One server instance with everything in memory: no accounts, no moderation, no persistence, no scaling past one machine.
+- **Phones in one room can cross-trigger.** Muted mics still reach the listener, so one person saying "unmute" next to several phones could unmute all of them.
+- **Languages are unreviewed.** The French, Spanish and Vietnamese phrases haven't been checked by native speakers, and a French or Vietnamese recognizer catches English commands poorly.
+- **Privacy.** Your audio reaches the server only to detect commands. It is never recorded.
 
-Then open `https://<service-url>/presenter?key=<PRESENTER_KEY>` on the projector.
+## Credits
 
-### Custom domain (roadies.afig.dev)
-
-A Cloudflare Worker in `deploy/proxy/` passes `roadies.afig.dev` through to the
-Cloud Run URL (pages, assets and the `/ws` socket; LiveKit audio goes to LiveKit
-Cloud directly). Set `ORIGIN` in `deploy/proxy/wrangler.jsonc` to the service URL,
-then `npx wrangler deploy -c deploy/proxy/wrangler.jsonc` (creates the DNS record
-and certificate). The presenter's QR code uses the page's own origin, so open the
-projector at `https://roadies.afig.dev/presenter?key=...`.
+Built by [Tyler Darisme](https://github.com/a-Fig), pair-programming with [Claude Opus 5.5](https://www.anthropic.com/claude), which wrote much of the code and tests and was an excellent teammate for a 48-hour sprint. Brand, intro animation, car art and screen design by [@tthy-working](https://github.com/tthy-working). Sound cues are Discord's. Map tiles by Esri. The full product design and every decision behind it is in [DESIGN.md](DESIGN.md).

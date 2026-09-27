@@ -11,7 +11,7 @@ Cloud Run, rehearse.
 - `DESIGN.md`: every product decision (the §1 table). The owner made these in
   a kickoff interview; don't re-open them unless something in this session
   forces it, and then ask.
-- `README.md`: run, test and deploy commands.
+- `README.md`: run and test; `docs/deploy.md`: real phones, CI and deploy.
 - History: [PR #1](https://github.com/a-Fig/TrafficLive/pull/1), merged into `main`.
 
 ## Working with the owner
@@ -79,7 +79,7 @@ Never exercised, so expect work here:
    join, hearing each other, spoken commands, chimes, and the screen staying
    on. Note: over a tunnel the `/dev/*` endpoints are public, which is fine
    for rehearsal but not for the real demo.
-5. **Deploy.** Follow README "Deploy". Keep exactly one instance. Set
+5. **Deploy.** Follow docs/deploy.md "Deploy". Keep exactly one instance. Set
    `PRESENTER_KEY`. Check `/health`, `/presenter?key=…`, and that the QR code
    points at the deployed `/demo` (use `?join=` to override it).
 6. **Rehearse** against the deployed URL:
