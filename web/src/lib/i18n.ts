@@ -91,6 +91,8 @@ const en = {
     Purple: 'Purple',
     Pink: 'Pink',
     Gold: 'Gold',
+    Tangerine: 'Tangerine',
+    Brick: 'Brick',
   } satisfies Record<ColorName, string>,
 };
 
@@ -175,6 +177,8 @@ const fr: Strings = {
     Purple: 'violette',
     Pink: 'rose',
     Gold: 'dorée',
+    Tangerine: 'mandarine',
+    Brick: 'brique',
   },
 };
 
@@ -254,6 +258,8 @@ const es: Strings = {
     Purple: 'morado',
     Pink: 'rosa',
     Gold: 'dorado',
+    Tangerine: 'mandarina',
+    Brick: 'ladrillo',
   },
 };
 
@@ -333,6 +339,8 @@ const vi: Strings = {
     Purple: 'tím',
     Pink: 'hồng',
     Gold: 'vàng kim',
+    Tangerine: 'quýt',
+    Brick: 'đỏ gạch',
   },
 };
 
