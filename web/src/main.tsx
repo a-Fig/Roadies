@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { lang, strings } from './lib/i18n';
-import { demoCar, savedProfile } from './lib/identity';
+import { demoCar, ensureProfile } from './lib/identity';
 import { Join } from './pages/Join';
 import { Setup } from './pages/Setup';
 import { Sounds } from './pages/Sounds';
@@ -49,28 +49,12 @@ function App() {
     );
   }
   if (path === '/demo') {
-    return <Join mode="demo" lang={l} profile={demoCar()} spot={params.get('spot') ?? undefined} kicker={t.demoKicker} cta={t.demoCta} />;
+    return <Join mode="demo" lang={l} profile={demoCar()} spot={params.get('spot') ?? undefined} kicker={t.demoKicker} />;
   }
 
-  const profile = savedProfile();
-  if (!profile) {
-    location.replace('/setup');
-    return null;
-  }
-  return (
-    <Join
-      mode="live"
-      lang={l}
-      profile={profile}
-      kicker={t.liveKicker}
-      cta={t.liveCta}
-      footer={
-        <p className="links">
-          <a href="/setup">{t.settings}</a> · <a href="/demo">{t.tryDemo}</a>
-        </p>
-      }
-    />
-  );
+  // Live mode never forces /setup: a first-ever open gets a random car right away
+  // (owner rule) - Setup stays reachable any time from its icon on Your jam.
+  return <Join mode="live" lang={l} profile={ensureProfile()} kicker={t.liveKicker} />;
 }
 
 // No StrictMode: its dev-only double mount would tear down the live voice session.

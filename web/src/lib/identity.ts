@@ -70,3 +70,17 @@ export function savedProfile(): CarProfile | null {
 export function saveProfile(profile: CarProfile): void {
   write('local', 'roadies.profile', JSON.stringify(profile));
 }
+
+/**
+ * Normal mode must never force the setup screen (owner rule): on a driver's
+ * very first open, assign a random car and name, save it like `Setup` would,
+ * and go straight to Your jam. Setup is still reachable any time from its
+ * icon to change color, make, name or language.
+ */
+export function ensureProfile(): CarProfile {
+  const existing = savedProfile();
+  if (existing) return existing;
+  const car = localizeName(randomCar());
+  saveProfile(car);
+  return car;
+}
