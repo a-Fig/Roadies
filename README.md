@@ -68,7 +68,7 @@ You need Node 22 or newer, Git, and ports 5173, 7880 and 8080 free. On Windows, 
 
    ```sh
    git clone https://github.com/a-Fig/Roadies.git
-   cd roadies
+   cd Roadies
    npm install
    npm run dev
    ```
