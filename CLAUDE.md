@@ -52,6 +52,6 @@ npm run build            # Vite build into web/dist (the server serves it)
 
 ## Deployment
 
-A single Cloud Run instance (`Dockerfile`; `--min-instances 1 --max-instances 1 --no-cpu-throttling`). All state is in memory, so never scale past one instance. In production, `RECOGNIZER` defaults to `google` (Application Default Credentials; the runtime service account needs `roles/speech.client`), `/dev/*` is off, and a missing `PRESENTER_KEY` gets a random key printed at startup. Full commands are in README.md.
+A single Cloud Run instance (`Dockerfile`; `--min-instances 1 --max-instances 1 --no-cpu-throttling`). All state is in memory, so never scale past one instance. In production, `RECOGNIZER` defaults to `google` (Application Default Credentials; the runtime service account needs `roles/speech.client`), `/dev/*` is off, and a missing `PRESENTER_KEY` gets a random key printed at startup. Full commands are in docs/deploy.md.
 
 Mobile browsers pause WebRTC when the page is backgrounded (e.g. behind Google Maps), so the phone keeps a screen wake lock. Background voice needs a native shell (roadmap, DESIGN.md §12).
