@@ -102,4 +102,4 @@ To use real phones and real voice recognition you need HTTPS, a LiveKit Cloud pr
 
 ## Credits
 
-Built by [Tyler Darisme](https://github.com/a-Fig). Brand, intro animation, car art and screen design by [@tthy-working](https://github.com/tthy-working). Sound cues are Discord's. Map tiles by Esri. The full product design and every decision behind it is in [DESIGN.md](DESIGN.md).
+Built by [Tyler Darisme](https://github.com/a-Fig), pair-programming with [Claude Opus 5.5](https://www.anthropic.com/claude), which wrote much of the code and tests and was an excellent teammate for a 48-hour sprint. Brand, intro animation, car art and screen design by [@tthy-working](https://github.com/tthy-working). Sound cues are Discord's. Map tiles by Esri. The full product design and every decision behind it is in [DESIGN.md](DESIGN.md).
