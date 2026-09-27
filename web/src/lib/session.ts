@@ -24,8 +24,6 @@ export interface SessionView {
   room: RoomInfo | null;
   /** While disconnected: who "connect" would match with right now, or null for a new room. */
   closest: { name: string; color: string; roomName: string } | null;
-  /** While disconnected: whether "random" has anywhere to jump to. */
-  randomAvailable: boolean;
   /** A transient, non-fatal notice from the server (e.g. "random" had nowhere to go). */
   notice: { code: NoticeCode; at: number } | null;
   /** LiveKit active speakers (identities), unfiltered. */
@@ -76,7 +74,6 @@ export class DriveSession {
       state: joinState(opts.mode),
       room: null,
       closest: null,
-      randomAvailable: false,
       notice: null,
       speakers: [],
       socket: 'connecting',
@@ -199,7 +196,6 @@ export class DriveSession {
           state: joinState(this.opts.mode),
           speakers: [],
           closest: null,
-          randomAvailable: false,
           notice: null,
         });
         this.socket.send(this.hello());
@@ -208,7 +204,7 @@ export class DriveSession {
         this.update({ error: msg.message });
         break;
       case 'closest':
-        this.update({ closest: msg.match, randomAvailable: msg.randomAvailable });
+        this.update({ closest: msg.match });
         break;
       case 'notice':
         this.update({ notice: { code: msg.code, at: Date.now() } });

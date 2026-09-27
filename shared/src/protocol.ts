@@ -72,13 +72,11 @@ export type ServerMessage =
   | { t: 'error'; message: string }
   /**
    * While disconnected: who "connect" would match with right now (or null, meaning
-   * a new room), and whether "random" has anywhere to go. Data only — the phone
-   * composes the text (i18n).
+   * a new room). Data only — the phone composes the text (i18n).
    */
   | {
       t: 'closest';
       match: { name: string; color: string; roomName: string } | null;
-      randomAvailable: boolean;
     }
   /** A transient, non-fatal notice. A code, not a sentence: phones compose the text (i18n). */
   | { t: 'notice'; code: NoticeCode };

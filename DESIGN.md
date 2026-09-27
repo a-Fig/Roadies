@@ -31,7 +31,7 @@ and this doc disagree, fix one of them.
 | Phone UI | **Glanceable driving mode**: one huge status line, giant buttons, no member list on the demo/scripted screens; the restyled voice-chat screen adds a small grid of up to 4 avatar circles (speaking ring, muted badge; every driver, "You" included, is a cream car on a circle in their car color, labeled with their car name or "You"). On desktop the phone screens sit in a phone frame. **No "Heard …" confirmation for any source (2026-09-26, decided by Tyler): the state change plus the Discord sound is the only confirmation.** Minimal text throughout: drivers glance, they don't read — no paragraphs or instruction blocks, at most one short safety line (the privacy notice). Dark mode follows the OS setting on every phone screen (brand-kit tokens, `web/src/styles.css`); the presenter/projector is exempt and always dark. |
 | Audio feedback | **Discord's own voice sounds** (mute, deafen, join, leave, …), so people instantly know them. Taken from Discord's web client for this non-commercial demo (owner's call, 2026-09-26); replace before any public release. |
 | Fonts | **Bepory** (headings) + **Roboto** (body), from the owner's girlfriend's brand. Bepory is a free personal-use file, kept out of git (`web/public/fonts/`, gitignored) with a Roboto fallback if it's absent; owner's call, 2026-09-26; buy a license from rantaustudio.com before any public release. |
-| After `disconnect` | Mic keeps listening for `connect` / `random` (screen shows a live preview of each). `connect` re-matches to the closest active driver with a free seat *right now*, same rule as joining — reactivates in place if that's your own (ghost) room. `random` jumps to a uniformly random open room other than your own; only works while disconnected. **Changed 2026-09-26 by the owner.** |
+| After `disconnect` | Mic keeps listening for `connect` / `random` (screen shows a live preview of each). `connect` re-matches to the closest active driver with a free seat *right now*, same rule as joining — reactivates in place if that's your own (ghost) room. `random` jumps to a uniformly random open room other than your own, or does what `connect` does when there's none; only works while disconnected. **Changed 2026-09-26 by the owner.** |
 | Projector | Live map + Discord-style channel list + hidden presenter controls + QR code. |
 | Home page | Shows a live count, e.g. "12 drivers talking": drivers with an open connection who haven't disconnected; bots excluded. |
 | Identity | Demo: random car (e.g. "Teal Civic"). Normal: setup screen to pick car + name. No accounts. |
@@ -124,12 +124,12 @@ capacity 8 → 4; added `random` and the disconnected-screen preview.
   no state change, no log): picks uniformly at random, via the injected `rng`,
   among open rooms (≥ 1 active member, `< 4`) **other than** your current ghost
   room, and moves you there active (reason `random`; mute/deafen state is
-  preserved). If there's no such room, you stay disconnected and the server sends
-  `{t:'notice', code:'no-open-rooms'}`.
+  preserved). If there's no such room (e.g. the only open room is your own), it
+  does exactly what `connect` does: the closest open room, or reactivate in place
+  (owner, 2026-09-26: `random` always works).
 - **Disconnected-screen preview**: while disconnected, the server also computes
-  `closestOpen` (excluding yourself) and whether `random` has anywhere to go, and
-  pushes `{t:'closest', match, randomAvailable}` — sent on disconnect and again
-  whenever either changes (checked every `World.tick()`). The phone composes the
+  `closestOpen` (excluding yourself) and pushes `{t:'closest', match}` — sent on
+  disconnect and again whenever it changes (checked every `World.tick()`). The phone composes the
   display text from this data; strings live together in the phone code so a
   separate i18n pass can translate them.
 - **Room names**: nearest landmark on the corridor + ordinal, e.g.
@@ -256,8 +256,7 @@ nothing is stored.
   `connect` and one for `random`. Text is kept to a glance, not a sentence
   (owner rule, 2026-09-26): each card leads with the spoken command and a
   short context line — who `connect` would match you with (`Teal Civic ·
-  Hospital Curve`) or `New room`, and, when `random` has nowhere to go, a
-  short notice (`No rooms open`) in place of a description. Tapping a card is
+  Hospital Curve`) or `New room`; `random` is always available. Tapping a card is
   the same as saying it (§3, §4).
 - Audio: echo cancellation, noise suppression, auto gain on.
 - Screen wake lock while in a room, so a mounted phone doesn't sleep. If the

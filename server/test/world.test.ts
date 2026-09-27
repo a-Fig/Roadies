@@ -229,14 +229,16 @@ describe('World', () => {
     expect(t.world.getCar(t.pub('car-aaaaa'))!.state.connected).toBe(true);
   });
 
-  it('sends a no-open-rooms notice when "random" has nowhere to go, and stays disconnected', async () => {
+  it('"random" with nowhere else open falls back to "connect" (reactivates in place)', async () => {
     const t = setup();
     t.join('car-aaaaa', { spot: 'sfo' }); // alone: the only room is its own
     await t.flush();
+    const roomBefore = t.world.snapshot().rooms[0]!.id;
     t.world.command(t.pub('car-aaaaa'), 'disconnect', 'voice');
     t.world.command(t.pub('car-aaaaa'), 'random', 'voice');
-    expect(t.last('car-aaaaa', 'notice')).toEqual({ t: 'notice', code: 'no-open-rooms' });
-    expect(t.world.getCar(t.pub('car-aaaaa'))!.state.connected).toBe(false);
+    expect(t.last('car-aaaaa', 'notice')).toBeUndefined();
+    expect(t.world.getCar(t.pub('car-aaaaa'))!.state.connected).toBe(true);
+    expect(t.world.snapshot().rooms.map((r) => r.id)).toEqual([roomBefore]);
   });
 
   it('a "random" move issues a fresh token for the new room, after the state update', async () => {
