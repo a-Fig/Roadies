@@ -1,6 +1,6 @@
 # Roadies — Design
 
-**Roadies** (repo: TrafficLive) is Discord-style proximity **voice** chat for
+**Roadies** is Discord-style proximity **voice** chat for
 drivers stuck in the same jam.
 Built as a **hackathon demo** (48-hour build) where judges scan a QR code and
 become cars stuck on **US-101 northbound, South Bay → SF, 8:15 AM**.

@@ -67,8 +67,8 @@ You need Node 22 or newer, Git, and ports 5173, 7880 and 8080 free. On Windows, 
 1. Install and start everything:
 
    ```sh
-   git clone https://github.com/a-Fig/TrafficLive.git roadies
-   cd roadies
+   git clone https://github.com/a-Fig/Roadies.git
+   cd Roadies
    npm install
    npm run dev
    ```

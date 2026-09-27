@@ -12,7 +12,7 @@ Cloud Run, rehearse.
   a kickoff interview; don't re-open them unless something in this session
   forces it, and then ask.
 - `README.md`: run and test; `docs/deploy.md`: real phones, CI and deploy.
-- History: [PR #1](https://github.com/a-Fig/TrafficLive/pull/1), merged into `main`.
+- History: [PR #1](https://github.com/a-Fig/Roadies/pull/1), merged into `main`.
 
 ## Working with the owner
 
