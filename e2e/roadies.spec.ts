@@ -15,7 +15,9 @@ const SHOTS = 'test-results/screens';
 const contexts: BrowserContext[] = [];
 async function newContext(browser: Browser, options: Parameters<Browser['newContext']>[0]) {
   // English unless a test says otherwise: the UI follows the browser's language.
-  const context = await browser.newContext({ locale: 'en-US', ...options });
+  // Reduced motion so the girlfriend's intro (played on every open of Your jam)
+  // resolves immediately instead of running its several-second GSAP timeline.
+  const context = await browser.newContext({ locale: 'en-US', reducedMotion: 'reduce', ...options });
   contexts.push(context);
   return context;
 }
@@ -25,7 +27,8 @@ async function phone(browser: Browser, spot: string, { live = true } = {}): Prom
   const context = await newContext(browser, { ...devices['Pixel 7'], permissions: ['microphone'] });
   const page = await context.newPage();
   await page.goto(`${BASE}/demo?spot=${spot}`);
-  await page.getByRole('button', { name: 'Join the jam' }).click();
+  // Your jam: "connect" is today's closest-room join (unchanged behavior).
+  await page.getByRole('button', { name: 'Connect' }).click();
   await expect(page.locator('.voice-status')).toHaveText(/Voice Connected/);
   await expect(page.locator('.banner')).toHaveText('MUTED · say “unmute”');
   if (live) {
@@ -156,7 +159,8 @@ test('disconnect and connect by voice', async ({ browser, request }) => {
   await say(request, idA, 'disconnect');
   await expect(a.locator('.status-title')).toHaveText('Disconnected');
   await expect(a.getByTestId('hint')).toContainText('connect');
-  await expect(b.locator('.status-sub')).toHaveText('Just you so far — we’ll find you company');
+  // Room count, glanceable alone as with company - no "Just you so far" sentence.
+  await expect(b.locator('.status-sub')).toHaveText('1 roadies in this room');
   await expect.poll(() => subscribed(b)).toBe(0);
   // Still listening for "connect".
   expect(await listenerHears(request, idA)).toBe(true);
@@ -174,8 +178,8 @@ test('a French phone: French screen, and saying "coupe le micro" mutes it', asyn
   const page = await context.newPage();
   await page.goto(`${BASE}/demo?spot=sfo`);
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
-  await expect(page.locator('.fine')).toContainText('coupe le micro');
-  await page.getByRole('button', { name: 'Rejoindre le bouchon' }).click();
+  await expect(page.getByRole('button', { name: 'Connexion' })).toContainText('connexion');
+  await page.getByRole('button', { name: 'Connexion' }).click();
   await expect(page.locator('.voice-status')).toHaveText(/Vocal connecté/);
   await expect(page.locator('.banner')).toHaveText('MICRO COUPÉ · dis « active le micro »');
 
@@ -235,7 +239,7 @@ test('a lone commuter is merged into the nearest open room after 15 seconds', as
   await phone(browser, 'san-jose');
   const d = await phone(browser, 'san-jose');
   const loner = await phone(browser, 'loner');
-  await expect(loner.locator('.status-sub')).toHaveText('Just you so far — we’ll find you company');
+  await expect(loner.locator('.status-sub')).toHaveText('1 roadies in this room');
   // Free a seat in San Jose — but not down to exactly one active member, so it doesn't
   // start its own alone-timer — giving the loner somewhere to be merged into.
   await d.getByRole('button', { name: 'Disconnect' }).click();
@@ -277,7 +281,7 @@ test('the projector shows rooms, members and cars', async ({ browser, request })
   await expect(other.getByText(/Wrong presenter key/)).toBeVisible();
 });
 
-test('normal mode: set up your car once, then drive with real GPS', async ({ browser }) => {
+test('normal mode: a random car is assigned on first open, no forced /setup; customize, then drive with real GPS', async ({ browser }) => {
   const context = await newContext(browser, {
     ...devices['Pixel 7'],
     permissions: ['microphone', 'geolocation'],
@@ -286,14 +290,21 @@ test('normal mode: set up your car once, then drive with real GPS', async ({ bro
   });
   const page = await context.newPage();
   await page.goto(`${BASE}/`);
+  // Your jam right away - never forced to /setup - with an auto-assigned car.
+  await expect(page).toHaveURL(`${BASE}/`);
+  await expect(page.locator('.car-chip')).toBeVisible();
+
+  // Setup stays reachable any time from its gear icon.
+  await page.getByRole('link', { name: 'Settings' }).click();
   await expect(page).toHaveURL(/\/setup$/);
   await page.getByLabel('Purple').click();
   await page.getByRole('button', { name: 'Miata', exact: true }).click();
   await page.getByLabel('Display name').fill('Fig');
   await page.getByRole('button', { name: 'Save' }).click();
 
+  await expect(page).toHaveURL(`${BASE}/`);
   await expect(page.getByText('You’re the Fig')).toBeVisible();
-  await page.getByRole('button', { name: 'Start driving' }).click();
+  await page.getByRole('button', { name: 'Connect' }).click();
   await expect(page.locator('.voice-status')).toHaveText(/Voice Connected/);
   await expect(page.locator('.status-title')).toHaveText('Hospital Curve #1');
   await expect(page.locator('.me')).toHaveText('Fig');

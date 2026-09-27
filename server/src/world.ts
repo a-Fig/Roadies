@@ -197,7 +197,11 @@ export class World {
     };
     this.cars.set(car.id, car);
     send({ t: 'welcome', id: car.id, profile: car.profile, state: car.state, mode: car.mode });
-    this.handle(this.matchmaker.place(car.id, pos, now));
+    const events =
+      msg.join === 'random'
+        ? this.matchmaker.placeRandom(car.id, pos, now, this.rng)
+        : this.matchmaker.place(car.id, pos, now);
+    this.handle(events);
   }
 
   /** Live-mode GPS update. */

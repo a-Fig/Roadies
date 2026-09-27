@@ -1,5 +1,6 @@
 import { CAR_COLORS, CAR_MAKES, colorHex, LANG_NAMES, LANGS, type CarProfile, type Lang } from '@roadies/shared';
 import { useEffect, useState } from 'react';
+import { CarArt } from '../components/CarArt';
 import { CarIcon } from '../components/icons';
 import { colorLabel, defaultName, hasDefaultName, lang, setLang, strings } from '../lib/i18n';
 import { savedProfile, saveProfile } from '../lib/identity';
@@ -30,7 +31,7 @@ export function Setup() {
   };
 
   return (
-    <main className="setup">
+    <main className="setup brand-kit">
       <h1>{t.setupTitle}</h1>
       <p className="car-sub">{t.setupSub}</p>
 
@@ -53,11 +54,12 @@ export function Setup() {
             <button
               key={c.name}
               className={`swatch ${c.name === color ? 'selected' : ''}`}
-              style={{ background: c.hex }}
               aria-label={colorLabel(picked, c.name)}
               aria-pressed={c.name === color}
               onClick={() => setColor(c.name)}
-            />
+            >
+              <CarArt color={c.hex} size={40} />
+            </button>
           ))}
         </div>
       </fieldset>

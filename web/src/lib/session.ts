@@ -47,6 +47,8 @@ export interface SessionOptions {
   spot?: string;
   /** Live: first GPS fix. */
   pos?: LatLng;
+  /** First join only: seat in a uniformly random open room ("random" card) instead of closest-first. */
+  join?: 'random';
 }
 
 /** One driver's connection: control socket + LiveKit voice + chimes. */
@@ -130,6 +132,7 @@ export class DriveSession {
       spot: this.opts.spot,
       pos: this.pos,
       lang: this.opts.lang,
+      join: this.opts.join,
     };
   }
 

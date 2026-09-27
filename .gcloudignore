@@ -4,3 +4,6 @@
 .gitignore
 #!include:.gitignore
 #!include:.dockerignore
+
+# Bepory.otf is gitignored (never committed) but must ship in the deploy upload.
+!web/public/fonts/

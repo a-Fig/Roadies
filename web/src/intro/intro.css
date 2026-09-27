@@ -1,0 +1,52 @@
+/* Layout ported from the girlfriend's design
+   (scratchpad/gf-roadies/src/styles/intro.css). Colors reference brand.css's
+   --brand-* tokens rather than her fixed --orange/--cream/--bubble, so the
+   intro follows light/dark mode automatically - in particular #masks path
+   must paint the CURRENT background color, not a hardcoded cream/white, or
+   the masks would show as a light patch over a dark background.
+
+   Sizing: this component fills whatever box its caller gives it (.intro is
+   just the centering machinery, same division of responsibility as her
+   design) - the caller makes that box the phone screen, e.g. 100dvh at the
+   top of the app, or a fixed preview box on /brand. */
+
+.intro {
+  display: grid;
+  place-items: center;
+  container-type: size;
+  width: 100%;
+  height: 100%;
+}
+
+/* The 440x956 Figma frame, scaled to fit the box without cropping. */
+.intro-stage {
+  position: relative;
+  width: min(100cqw, 100cqh * 440 / 956);
+  aspect-ratio: 440 / 956;
+}
+
+.intro-stage svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.intro #ro,
+.intro #adies {
+  fill: var(--brand-orange);
+}
+
+/* The masks hide parts of the "R", so they must match the CURRENT
+   background exactly (cream in light mode, ink in dark mode). */
+.intro #masks path {
+  fill: var(--brand-bg);
+}
+
+.intro .bubble ellipse,
+.intro .bubble path {
+  fill: var(--brand-bubble);
+}
+
+.intro .bubble .bubble-text {
+  fill: var(--brand-bubble-text);
+}
