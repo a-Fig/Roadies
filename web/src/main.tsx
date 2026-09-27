@@ -1,6 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { lang, strings } from './lib/i18n';
+import { lang } from './lib/i18n';
 import { demoCar, ensureProfile } from './lib/identity';
 import { Join } from './pages/Join';
 import { Setup } from './pages/Setup';
@@ -24,12 +24,24 @@ const Presenter = lazy(() => import('./pages/Presenter').then((m) => ({ default:
 // Dev-only brand kit preview (intro, tokens, fonts, car colors); not linked from the app.
 const Brand = lazy(() => import('./pages/Brand').then((m) => ({ default: m.Brand })));
 
+/**
+ * Every phone screen lives in one phone-sized box: the whole viewport on a
+ * phone, her rounded phone frame on a composed backdrop on a laptop or tablet
+ * (styles.css `.phone-shell`), so nothing ever stretches to desktop width.
+ */
+function Phone({ children }: { children: ReactNode }) {
+  return (
+    <div className="phone-shell">
+      <div className="phone brand-kit">{children}</div>
+    </div>
+  );
+}
+
 function App() {
   const path = location.pathname.replace(/\/+$/, '') || '/';
   const params = new URLSearchParams(location.search);
   // Phone pages follow the driver's language; the projector and /sounds stay English.
   const l = path === '/presenter' || path === '/sounds' ? 'en' : lang();
-  const t = strings(l);
   document.documentElement.lang = l;
 
   if (path === '/presenter') {
@@ -39,8 +51,13 @@ function App() {
       </Suspense>
     );
   }
-  if (path === '/setup') return <Setup />;
-  if (path === '/sounds') return <Sounds />;
+  if (path === '/sounds') {
+    return (
+      <Phone>
+        <Sounds />
+      </Phone>
+    );
+  }
   if (path === '/brand') {
     return (
       <Suspense fallback={null}>
@@ -48,13 +65,30 @@ function App() {
       </Suspense>
     );
   }
+  if (path === '/setup') {
+    // A direct link to (or reload of) /setup. The app itself opens Settings in
+    // place, so a call in progress survives it.
+    return (
+      <Phone>
+        <Setup />
+      </Phone>
+    );
+  }
   if (path === '/demo') {
-    return <Join mode="demo" lang={l} profile={demoCar()} spot={params.get('spot') ?? undefined} kicker={t.demoKicker} />;
+    return (
+      <Phone>
+        <Join mode="demo" lang={l} profile={demoCar()} spot={params.get('spot') ?? undefined} />
+      </Phone>
+    );
   }
 
   // Live mode never forces /setup: a first-ever open gets a random car right away
-  // (owner rule) - Setup stays reachable any time from its icon on Your jam.
-  return <Join mode="live" lang={l} profile={ensureProfile()} kicker={t.liveKicker} />;
+  // (owner rule). Settings stays reachable any time from Your jam and the voice chat.
+  return (
+    <Phone>
+      <Join mode="live" lang={l} profile={ensureProfile()} />
+    </Phone>
+  );
 }
 
 // No StrictMode: its dev-only double mount would tear down the live voice session.

@@ -2,76 +2,61 @@ import { CAR_COLORS, isLang, LANGS, type CarProfile, type Lang, type NoticeCode 
 
 /**
  * Phone UI strings in English, French, Spanish and Vietnamese (DESIGN.md §1).
- * Copy is short because it is read at a glance while driving: French uses
- * "tu", Spanish neutral Latin American "tú", Vietnamese "bạn". Spoken command
- * phrases are not here: the UI shows `sayPhrase(lang, cmd)` from shared, so
- * the screen always matches what the recognizer accepts. The presenter and
- * /sounds stay English.
+ * Drivers glance, they don't read (owner rule, 2026-09-26): labels are a word
+ * or two, never a sentence where a word or an icon works. French uses "tu",
+ * Spanish neutral Latin American "tú", Vietnamese "bạn". Spoken command
+ * phrases are not here: the UI shows `sayPhrase(lang, cmd)` from shared (also
+ * as the button labels), so the screen always matches what the recognizer
+ * accepts. The presenter and /sounds stay English.
  */
 
 type ColorName = (typeof CAR_COLORS)[number]['name'];
 
 const en = {
-  // Home and demo pages
-  demoKicker: 'Stuck on US-101 northbound · 8:15 AM',
-  demoCta: 'Join the jam',
-  liveKicker: 'Proximity voice for the jam you’re in',
-  liveCta: 'Start driving',
+  // Your jam
+  /** Demo jam card: eyebrow over the road name. */
+  stuckOn: 'Stuck on',
+  /** Live jam card: eyebrow over "Your jam". */
+  liveEyebrow: 'Proximity voice',
+  yourJam: 'Your jam',
   settings: 'Settings',
-  tryDemo: 'Try the demo',
-  nobodyTalking: 'No one’s talking yet. Be the first.',
   driversTalking: (n: number) => `${n} ${n === 1 ? 'driver' : 'drivers'} talking`,
-  youAre: (name: string) => `You’re the ${name}`,
-  tagline: 'Voice chat with the drivers stuck around you',
+  /** What each command card does, before there's a live match to show. */
+  connectDesc: 'Nearest drivers',
+  randomDesc: 'Any open room',
+  /** Over the command cards while the server is listening for them (after a disconnect). */
+  justSay: 'Just say',
+  /** The one short safety line. */
+  eyesOnRoad: 'Eyes on the road',
   starting: 'Starting…',
-  handsFree: 'Hands-free: say',
-  or: 'or',
-  privacy: 'Roadies listens for those words on its server; nothing is recorded.',
   noGps: 'This browser has no GPS access.',
   needLocation: 'Roadies needs your location to find nearby drivers.',
   needMic: 'Roadies needs your microphone. Allow it and tap again.',
 
-  // Driving screen
+  // Voice chat
   quote: (s: string) => `“${s}”`,
-  voiceConnected: 'Voice Connected',
-  voiceDisconnected: 'Voice Disconnected',
-  voiceConnecting: 'Connecting voice…',
+  /** Her "Live" tag: voice is connected. */
+  live: 'Live',
+  voiceConnecting: 'Connecting…',
   voiceFailed: 'Voice connection failed',
-  disconnected: 'Disconnected',
-  listeningFor: (q: string) => `Listening for ${q}`,
   finding: 'Finding your jam…',
-  matching: 'Matching you with nearby drivers',
-  connecting: 'Connecting to Roadies',
-  justYou: 'Just you so far — we’ll find you company',
-  roomCount: (n: number) => `${n} roadies in this room`,
-  sayToRejoin: (q: string) => `Say ${q} to rejoin`,
-  talking: (names: string[]) => `${names.join(', ')} ${names.length > 1 ? 'are' : 'is'} talking`,
-  onAir: 'You’re on the air',
-  cantHear: 'You can’t hear the room',
-  quiet: 'Quiet road',
-  heard: (q: string) => `✓ Heard ${q}`,
-  presenterUsed: (q: string) => `The presenter used ${q}`,
-  say: 'Say:',
+  /** Screen-reader label for the room's head count tag. */
+  roomCount: (n: number) => `${n} ${n === 1 ? 'roadie' : 'roadies'} in this room`,
+  /** Your own tile in the avatar grid. */
+  you: 'You',
   mutedBanner: (q: string) => `MUTED · say ${q}`,
   deafenedBanner: (q: string) => `DEAFENED · say ${q}`,
   tapForSound: 'Tap to turn on sound',
-  keepOnScreen: 'Keep Roadies on screen — phones pause voice when the browser is in the background.',
+  keepOnScreen: 'Keep Roadies on screen',
   ok: 'OK',
-  mute: 'Mute',
-  unmute: 'Unmute',
-  deafen: 'Deafen',
-  undeafen: 'Undeafen',
-  disconnect: 'Disconnect',
-  connect: 'Connect',
-  random: 'Random',
-  /** The disconnected-screen "connect" card's context line when there's no match yet. */
+  /** The "connect" card's context line while disconnected with no one to match. */
   newRoom: 'New room',
   notices: { 'no-open-rooms': 'No rooms open' } satisfies Record<NoticeCode, string>,
 
   // Settings
-  setupTitle: 'Set up your car',
-  setupSub: 'This is how other roadies see you.',
-  displayName: 'Display name',
+  back: 'Back',
+  setupTitle: 'Your car',
+  displayName: 'Name',
   color: 'Color',
   car: 'Car',
   language: 'Language',
@@ -102,61 +87,37 @@ export type Strings = typeof en;
 const frOne = (n: number) => n < 2;
 
 const fr: Strings = {
-  demoKicker: 'Bouchon sur la US-101 direction nord · 8\u00a0h\u00a015',
-  demoCta: 'Rejoindre le bouchon',
-  liveKicker: 'Le vocal de proximité pour ton bouchon',
-  liveCta: 'Prendre la route',
+  stuckOn: 'Bouchon sur',
+  liveEyebrow: 'Vocal de proximité',
+  yourJam: 'Ton bouchon',
   settings: 'Paramètres',
-  tryDemo: 'Essayer la démo',
-  nobodyTalking: 'Personne ne parle encore. Lance-toi\u00a0!',
   driversTalking: (n) => (frOne(n) ? `${n} conducteur parle` : `${n} conducteurs parlent`),
-  youAre: (name) => `Tu es ${name}`,
-  tagline: 'Parle avec les conducteurs coincés autour de toi',
+  connectDesc: 'Les plus proches',
+  randomDesc: 'Un salon au hasard',
+  justSay: 'Dis juste',
+  eyesOnRoad: 'Les yeux sur la route',
   starting: 'Démarrage…',
-  handsFree: 'Mains libres\u00a0: dis',
-  or: 'ou',
-  privacy: 'Roadies écoute ces mots sur son serveur\u00a0; rien n’est enregistré.',
   noGps: 'Ce navigateur n’a pas accès au GPS.',
   needLocation: 'Roadies a besoin de ta position pour trouver les conducteurs proches.',
   needMic: 'Roadies a besoin de ton micro. Autorise-le et touche à nouveau.',
 
-  quote: (s) => `« ${s} »`,
-  voiceConnected: 'Vocal connecté',
-  voiceDisconnected: 'Vocal déconnecté',
-  voiceConnecting: 'Connexion au vocal…',
+  quote: (s) => `« ${s} »`,
+  live: 'En direct',
+  voiceConnecting: 'Connexion…',
   voiceFailed: 'Échec de la connexion vocale',
-  disconnected: 'Déconnecté',
-  listeningFor: (q) => `En attente de ${q}`,
   finding: 'Recherche de ton bouchon…',
-  matching: 'On cherche des conducteurs près de toi',
-  connecting: 'Connexion à Roadies',
-  justYou: 'Personne d’autre pour l’instant — on te trouve de la compagnie',
   roomCount: (n) => `${n} roadies dans ce salon`,
-  sayToRejoin: (q) => `Dis ${q} pour revenir`,
-  talking: (names) => `${names.join(', ')} ${names.length > 1 ? 'parlent' : 'parle'}`,
-  onAir: 'Tu es à l’antenne',
-  cantHear: 'Tu n’entends plus le salon',
-  quiet: 'Tout est calme',
-  heard: (q) => `✓ Compris\u00a0: ${q}`,
-  presenterUsed: (q) => `Action du présentateur\u00a0: ${q}`,
-  say: 'Dis\u00a0:',
+  you: 'Toi',
   mutedBanner: (q) => `MICRO COUPÉ · dis ${q}`,
   deafenedBanner: (q) => `SON COUPÉ · dis ${q}`,
   tapForSound: 'Touche pour activer le son',
-  keepOnScreen: 'Garde Roadies à l’écran — le téléphone coupe la voix quand le navigateur passe en arrière-plan.',
+  keepOnScreen: 'Garde Roadies à l’écran',
   ok: 'OK',
-  mute: 'Couper le micro',
-  unmute: 'Activer le micro',
-  deafen: 'Couper le son',
-  undeafen: 'Remettre le son',
-  disconnect: 'Déconnexion',
-  connect: 'Connexion',
-  random: 'Aléatoire',
   newRoom: 'Nouveau salon',
   notices: { 'no-open-rooms': 'Aucun salon ouvert' },
 
-  setupTitle: 'Configure ta voiture',
-  setupSub: 'C’est comme ça que les autres roadies te voient.',
+  back: 'Retour',
+  setupTitle: 'Ta voiture',
   displayName: 'Pseudo',
   color: 'Couleur',
   car: 'Voiture',
@@ -183,62 +144,38 @@ const fr: Strings = {
 };
 
 const es: Strings = {
-  demoKicker: 'Tráfico en la US-101 rumbo al norte · 8:15\u00a0a.\u00a0m.',
-  demoCta: 'Únete al tráfico',
-  liveKicker: 'Chat de voz para el tráfico en el que estás',
-  liveCta: 'Empezar a manejar',
+  stuckOn: 'Tráfico en',
+  liveEyebrow: 'Voz de proximidad',
+  yourJam: 'Tu tráfico',
   settings: 'Configuración',
-  tryDemo: 'Probar la demo',
-  nobodyTalking: 'Nadie está hablando todavía. ¡Empieza tú!',
   driversTalking: (n) => `${n} ${n === 1 ? 'conductor' : 'conductores'} hablando`,
-  youAre: (name) => `Eres ${name}`,
-  tagline: 'Habla con los conductores atascados a tu alrededor',
+  connectDesc: 'Los más cercanos',
+  randomDesc: 'Una sala al azar',
+  justSay: 'Solo di',
+  eyesOnRoad: 'La vista en el camino',
   starting: 'Iniciando…',
-  handsFree: 'Manos libres: di',
-  or: 'o',
-  privacy: 'Roadies escucha esas palabras en su servidor; no se graba nada.',
   noGps: 'Este navegador no tiene acceso al GPS.',
   needLocation: 'Roadies necesita tu ubicación para encontrar conductores cercanos.',
   needMic: 'Roadies necesita tu micrófono. Permítelo y toca de nuevo.',
 
   quote: (s) => `“${s}”`,
-  voiceConnected: 'Voz conectada',
-  voiceDisconnected: 'Voz desconectada',
-  voiceConnecting: 'Conectando la voz…',
+  live: 'En vivo',
+  voiceConnecting: 'Conectando…',
   voiceFailed: 'No se pudo conectar la voz',
-  disconnected: 'Desconectado',
-  listeningFor: (q) => `Esperando ${q}`,
   finding: 'Buscando tu tráfico…',
-  matching: 'Buscando conductores cerca de ti',
-  connecting: 'Conectando con Roadies',
-  justYou: 'Por ahora solo estás tú; pronto llegará alguien',
   roomCount: (n) => `${n} roadies en esta sala`,
-  sayToRejoin: (q) => `Di ${q} para volver`,
-  talking: (names) => `${names.join(', ')} ${names.length > 1 ? 'están' : 'está'} hablando`,
-  onAir: 'Estás al aire',
-  cantHear: 'No escuchas la sala',
-  quiet: 'Todo tranquilo',
-  heard: (q) => `✓ Entendido: ${q}`,
-  presenterUsed: (q) => `El presentador usó ${q}`,
-  say: 'Di:',
+  you: 'Tú',
   mutedBanner: (q) => `SILENCIADO · di ${q}`,
   deafenedBanner: (q) => `SIN SONIDO · di ${q}`,
   tapForSound: 'Toca para activar el sonido',
-  keepOnScreen: 'Mantén Roadies en pantalla: el teléfono pausa la voz cuando el navegador queda en segundo plano.',
+  keepOnScreen: 'Mantén Roadies en pantalla',
   ok: 'OK',
-  mute: 'Silenciar',
-  unmute: 'Activar micro',
-  deafen: 'Apagar sonido',
-  undeafen: 'Activar sonido',
-  disconnect: 'Desconectar',
-  connect: 'Conectar',
-  random: 'Aleatorio',
   newRoom: 'Sala nueva',
   notices: { 'no-open-rooms': 'Sin salas abiertas' },
 
-  setupTitle: 'Configura tu auto',
-  setupSub: 'Así te ven los demás roadies.',
-  displayName: 'Nombre visible',
+  back: 'Volver',
+  setupTitle: 'Tu auto',
+  displayName: 'Nombre',
   color: 'Color',
   car: 'Auto',
   language: 'Idioma',
@@ -264,63 +201,39 @@ const es: Strings = {
 };
 
 const vi: Strings = {
-  demoKicker: 'Kẹt xe trên US-101 hướng bắc · 8:15 sáng',
-  demoCta: 'Tham gia ngay',
-  liveKicker: 'Trò chuyện thoại với những người kẹt xe cùng bạn',
-  liveCta: 'Bắt đầu lái xe',
+  stuckOn: 'Kẹt xe trên',
+  liveEyebrow: 'Thoại lân cận',
+  yourJam: 'Đoạn kẹt xe',
   settings: 'Cài đặt',
-  tryDemo: 'Dùng thử bản demo',
-  nobodyTalking: 'Chưa có ai nói chuyện. Hãy là người đầu tiên!',
   // Vietnamese nouns do not inflect for number.
-  driversTalking: (n) => `${n} tài xế đang nói chuyện`,
-  youAre: (name) => `Bạn là ${name}`,
-  tagline: 'Nói chuyện với các tài xế đang kẹt xe quanh bạn',
+  driversTalking: (n) => `${n} tài xế đang nói`,
+  connectDesc: 'Tài xế gần nhất',
+  randomDesc: 'Phòng ngẫu nhiên',
+  justSay: 'Chỉ cần nói',
+  eyesOnRoad: 'Mắt luôn nhìn đường',
   starting: 'Đang khởi động…',
-  handsFree: 'Rảnh tay: hãy nói',
-  or: 'hoặc',
-  privacy: 'Roadies nghe những câu này trên máy chủ; không có gì được ghi âm.',
   noGps: 'Trình duyệt này không truy cập được GPS.',
   needLocation: 'Roadies cần vị trí của bạn để tìm tài xế ở gần.',
   needMic: 'Roadies cần micro của bạn. Hãy cho phép rồi chạm lại.',
 
   quote: (s) => `“${s}”`,
-  voiceConnected: 'Đã kết nối thoại',
-  voiceDisconnected: 'Đã ngắt thoại',
-  voiceConnecting: 'Đang kết nối thoại…',
+  live: 'Trực tiếp',
+  voiceConnecting: 'Đang kết nối…',
   voiceFailed: 'Không kết nối được thoại',
-  disconnected: 'Đã ngắt kết nối',
-  listeningFor: (q) => `Đang chờ lệnh ${q}`,
-  finding: 'Đang tìm đoạn kẹt xe của bạn…',
-  matching: 'Đang ghép bạn với tài xế gần đó',
-  connecting: 'Đang kết nối Roadies',
-  justYou: 'Hiện chỉ có bạn — sẽ sớm có người vào',
+  finding: 'Đang tìm đoạn kẹt xe…',
   roomCount: (n) => `Phòng có ${n} người`,
-  sayToRejoin: (q) => `Nói ${q} để vào lại`,
-  talking: (names) => `${names.join(', ')} đang nói`,
-  onAir: 'Mọi người đang nghe bạn',
-  cantHear: 'Bạn không nghe được phòng',
-  quiet: 'Yên ắng',
-  heard: (q) => `✓ Đã nghe ${q}`,
-  presenterUsed: (q) => `Người thuyết trình đã dùng ${q}`,
-  say: 'Nói:',
+  you: 'Bạn',
   mutedBanner: (q) => `ĐÃ TẮT MIC · nói ${q}`,
   deafenedBanner: (q) => `ĐÃ TẮT LOA · nói ${q}`,
   tapForSound: 'Chạm để bật âm thanh',
-  keepOnScreen: 'Hãy giữ Roadies trên màn hình — điện thoại tạm dừng thoại khi trình duyệt chạy nền.',
+  keepOnScreen: 'Giữ Roadies trên màn hình',
   ok: 'OK',
-  mute: 'Tắt mic',
-  unmute: 'Bật mic',
-  deafen: 'Tắt loa',
-  undeafen: 'Bật loa',
-  disconnect: 'Ngắt kết nối',
-  connect: 'Kết nối',
-  random: 'Ngẫu nhiên',
   newRoom: 'Phòng mới',
   notices: { 'no-open-rooms': 'Không có phòng nào' },
 
-  setupTitle: 'Thiết lập xe của bạn',
-  setupSub: 'Các roadie khác sẽ thấy bạn như thế này.',
-  displayName: 'Tên hiển thị',
+  back: 'Quay lại',
+  setupTitle: 'Xe của bạn',
+  displayName: 'Tên',
   color: 'Màu',
   car: 'Xe',
   language: 'Ngôn ngữ',
@@ -374,14 +287,14 @@ export function setLang(l: Lang): void {
 
 export const strings = (l: Lang = lang()): Strings => STRINGS[l];
 
+/** A spoken phrase as a label or heading: first letter capitalized ("connect" -> "Connect", "bật mic" -> "Bật mic"). */
+export const capitalize = (l: Lang, s: string): string => s.charAt(0).toLocaleUpperCase(l) + s.slice(1);
+
 /** A color's name in `l`, lowercase except in English ("noire", "Black"). Unknown colors pass through. */
 export const colorName = (l: Lang, color: string): string => STRINGS[l].colors[color as ColorName] ?? color;
 
 /** A color swatch's label ("Noire"). */
-export const colorLabel = (l: Lang, color: string): string => {
-  const name = colorName(l, color);
-  return name.charAt(0).toLocaleUpperCase(l) + name.slice(1);
-};
+export const colorLabel = (l: Lang, color: string): string => capitalize(l, colorName(l, color));
 
 /** "Teal Civic", "Civic turquoise", "Civic turquesa", "Civic xanh ngọc". */
 export const defaultName = (l: Lang, make: string, color: string): string =>

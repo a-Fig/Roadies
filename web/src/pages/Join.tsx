@@ -1,21 +1,14 @@
-import {
-  colorHex,
-  sayPhrase,
-  STATS_PATH,
-  type CarProfile,
-  type Lang,
-  type LatLng,
-  type Mode,
-  type PublicStats,
-} from '@roadies/shared';
-import { useEffect, useState } from 'react';
-import { CarArt } from '../components/CarArt';
-import { GearIcon, Wordmark } from '../components/icons';
+import type { CarProfile, Lang, LatLng, Mode } from '@roadies/shared';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { unlockAudio } from '../lib/chimes';
 import { Intro } from '../intro/Intro';
-import { strings, type Strings } from '../lib/i18n';
-import { DriveSession } from '../lib/session';
+import { setLang, strings, type Strings } from '../lib/i18n';
+import { saveDemoCar, saveProfile } from '../lib/identity';
+import { DriveSession, type SessionView } from '../lib/session';
+import { keepScreenOn } from '../lib/wakelock';
 import { Drive } from './Drive';
+import { Setup } from './Setup';
+import { YourJam } from './YourJam';
 
 declare global {
   interface Window {
@@ -29,8 +22,19 @@ interface JoinProps {
   lang: Lang;
   profile: CarProfile;
   spot?: string;
-  kicker: string;
 }
+
+/**
+ * Where the browser's history says we are. The screen itself is derived from
+ * the server's state (connected = voice chat, otherwise Your jam); these
+ * entries only exist so the phone's back button does the obvious thing:
+ * back from the voice chat = disconnect, back from Settings = where you were.
+ */
+type Nav = 'jam' | 'call' | 'settings';
+const navOf = (state: unknown): Nav => {
+  const nav = (state as { roadies?: unknown } | null)?.roadies;
+  return nav === 'call' || nav === 'settings' ? nav : 'jam';
+};
 
 function currentPosition(t: Strings): Promise<LatLng> {
   return new Promise((resolve, reject) => {
@@ -43,45 +47,80 @@ function currentPosition(t: Strings): Promise<LatLng> {
   });
 }
 
-/** How many people are talking on Roadies right now; polled while `active`. Null until known. */
-function useDriversTalking(active: boolean): number | null {
-  const [talking, setTalking] = useState<number | null>(null);
-  useEffect(() => {
-    if (!active) return;
-    let stopped = false;
-    const load = async () => {
-      // Background tabs don't poll: every request goes through the Cloudflare Worker.
-      if (document.hidden) return;
-      try {
-        const res = await fetch(STATS_PATH, { cache: 'no-store' });
-        if (!res.ok) return;
-        const stats = (await res.json()) as PublicStats;
-        if (!stopped) setTalking(stats.talking);
-      } catch {
-        // Offline for a moment: keep showing the last number.
-      }
-    };
-    void load();
-    const timer = setInterval(() => void load(), 5_000);
-    const onVisible = () => void load();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      stopped = true;
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [active]);
-  return talking;
+const noop = () => () => {};
+const none = () => null;
+
+/** The session's view, or null before the first tap. */
+function useSessionView(session: DriveSession | null): SessionView | null {
+  return useSyncExternalStore(session?.subscribe ?? noop, session?.getView ?? none);
 }
 
-/** The one tap that unlocks mic + audio, then the driving screen. */
-export function Join({ mode, lang, profile, spot, kicker }: JoinProps) {
+/**
+ * The phone app: the intro (once per open), then Your jam, the voice chat and
+ * Settings. One `DriveSession` lives here for the whole visit, so leaving a
+ * call (the server keeps you as a listening "ghost") lands back on Your jam
+ * with its cards wired to what "connect"/"random" would do right now, and
+ * Settings opens in place without dropping the call.
+ */
+export function Join({ mode, lang: initialLang, profile: initialProfile, spot }: JoinProps) {
+  const [lang, setLangState] = useState(initialLang);
+  const [profile, setProfile] = useState(initialProfile);
   const t = strings(lang);
   const [introDone, setIntroDone] = useState(false);
   const [session, setSession] = useState<DriveSession | null>(null);
   const [pending, setPending] = useState<'connect' | 'random' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const talking = useDriversTalking(!session);
+  const [wasHidden, setWasHidden] = useState(false);
+  const [nav, setNav] = useState<Nav>('jam');
+  const view = useSessionView(session);
+  const connected = !!view?.state.connected;
+
+  const navRef = useRef(nav);
+  navRef.current = nav;
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  /** Back was pressed in a call: the disconnect is on its way, don't re-push the call entry meanwhile. */
+  const leavingRef = useRef(false);
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
+  // A reload lands on whatever entry we left: there's no call or Settings to
+  // go back to yet, so start from a plain one.
+  useEffect(() => {
+    if (history.state?.roadies) history.replaceState(null, '');
+    const onPop = (e: PopStateEvent) => {
+      const next = navOf(e.state);
+      const s = sessionRef.current;
+      // Back out of the voice chat = the normal "disconnect" command (server
+      // path, chime and all), which also lands us on Your jam.
+      if (navRef.current === 'call' && next === 'jam' && s?.getView().state.connected) {
+        leavingRef.current = true;
+        s.command('disconnect');
+      }
+      setNav(next);
+    };
+    addEventListener('popstate', onPop);
+    return () => removeEventListener('popstate', onPop);
+  }, []);
+
+  // Mirror the server's state into history: a call gets its own entry (so back
+  // leaves it), and a call that ended some other way (button, voice, merge)
+  // drops that entry again.
+  useEffect(() => {
+    if (!connected) leavingRef.current = false;
+    if (connected && nav === 'jam' && !leavingRef.current) {
+      history.pushState({ roadies: 'call' }, '');
+      setNav('call');
+    } else if (!connected && nav === 'call') {
+      history.back();
+    }
+  }, [connected, nav]);
+
+  // A command card tapped while listening as a ghost stays "chosen" until the
+  // server answers (a room, or a notice that there was nowhere to go).
+  useEffect(() => setPending(null), [connected, view?.notice]);
 
   useEffect(() => {
     if (!session) return;
@@ -93,13 +132,26 @@ export function Join({ mode, lang, profile, spot, kicker }: JoinProps) {
         { enableHighAccuracy: true, maximumAge: 5_000 },
       );
     }
+    const releaseScreen = keepScreenOn();
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') setWasHidden(true);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       if (watch !== null) navigator.geolocation.clearWatch(watch);
+      releaseScreen();
+      document.removeEventListener('visibilitychange', onVisibility);
       void session.stop();
     };
   }, [session, mode]);
 
   const join = async (cmd: 'connect' | 'random') => {
+    if (session) {
+      // Already listening (after a disconnect): the same command the voice would send.
+      setPending(cmd);
+      session.command(cmd);
+      return;
+    }
     setPending(cmd);
     setError(null);
     unlockAudio();
@@ -119,59 +171,56 @@ export function Join({ mode, lang, profile, spot, kicker }: JoinProps) {
     setSession(s);
   };
 
-  if (!introDone) return <Intro onDone={() => setIntroDone(true)} />;
-  if (session) return <Drive session={session} lang={lang} />;
+  const openSettings = useCallback(() => {
+    if (navRef.current === 'settings') return;
+    history.pushState({ roadies: 'settings' }, '');
+    setNav('settings');
+  }, []);
 
-  // "Your jam"'s command cards have no live match preview yet (that only
-  // exists once a session is open, like Drive's disconnected screen) - both
-  // show the same honest placeholder Drive itself uses before it knows one.
-  const context = `${profile.name} · ${t.newRoom}`;
+  const saveSettings = (next: CarProfile, nextLang: Lang) => {
+    setLang(nextLang);
+    if (mode === 'live') saveProfile(next);
+    else saveDemoCar(next);
+    setLangState(nextLang);
+    setProfile(next);
+    session?.updateIdentity(next, nextLang);
+    history.back();
+  };
+
+  if (!introDone) return <Intro onDone={() => setIntroDone(true)} />;
+
+  if (nav === 'settings') {
+    return (
+      <Setup inApp={{ mode, lang, profile: view?.profile ?? profile, onSave: saveSettings, onBack: () => history.back() }} />
+    );
+  }
+
+  const hiddenNotice = wasHidden ? (
+    <button className="notice" onClick={() => setWasHidden(false)}>
+      {t.keepOnScreen} <u>{t.ok}</u>
+    </button>
+  ) : null;
+
+  if (session && view && connected) {
+    return (
+      <Drive session={session} view={view} lang={lang} onSettings={openSettings}>
+        {hiddenNotice}
+      </Drive>
+    );
+  }
 
   return (
-    <main className="splash brand-kit">
-      <div className="jam-top">
-        <Wordmark />
-        {mode === 'live' && (
-          <a className="icon-btn" href="/setup" aria-label={t.settings}>
-            <GearIcon />
-          </a>
-        )}
-      </div>
-
-      <div className="jam-card">
-        <div className="jam-cars" aria-hidden="true">
-          <CarArt color="#f4682c" size={44} />
-          <CarArt color="#fffcee" size={44} />
-        </div>
-        <p className="kicker">{kicker}</p>
-        {/* Always rendered, so the layout below doesn't shift when the count arrives. */}
-        <p className="live-count">
-          {!!talking && (
-            <>
-              <span className="live-dot" aria-hidden="true" />
-              {t.driversTalking(talking)}
-            </>
-          )}
-        </p>
-      </div>
-
-      <p className="car-chip">
-        <CarArt color={colorHex(profile.color)} size={20} />
-        {t.youAre(profile.name)}
-      </p>
-
-      <nav className="options">
-        <button className="option" aria-label={t.connect} disabled={!!pending} onClick={() => void join('connect')}>
-          <span className="option-cmd">{t.quote(sayPhrase(lang, 'connect'))}</span>
-          <span className="option-context">{pending === 'connect' ? t.starting : context}</span>
-        </button>
-        <button className="option" aria-label={t.random} disabled={!!pending} onClick={() => void join('random')}>
-          <span className="option-cmd">{t.quote(sayPhrase(lang, 'random'))}</span>
-          <span className="option-context">{pending === 'random' ? t.starting : context}</span>
-        </button>
-      </nav>
-
-      {error && <p className="notice error">{error}</p>}
-    </main>
+    <YourJam
+      mode={mode}
+      lang={lang}
+      profile={view?.profile ?? profile}
+      view={view}
+      pending={pending}
+      error={error ?? view?.error ?? null}
+      onCommand={(cmd) => void join(cmd)}
+      onSettings={openSettings}
+    >
+      {hiddenNotice}
+    </YourJam>
   );
 }
