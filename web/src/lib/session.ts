@@ -3,7 +3,6 @@ import {
   type CarProfile,
   type ClientMessage,
   type Command,
-  type CommandSource,
   type Lang,
   type LatLng,
   type Mode,
@@ -31,7 +30,6 @@ export interface SessionView {
   notice: { code: NoticeCode; at: number } | null;
   /** LiveKit active speakers (identities), unfiltered. */
   speakers: string[];
-  heard: { cmd: Command; source: CommandSource; at: number } | null;
   socket: SocketStatus;
   voiceConnected: boolean;
   audioBlocked: boolean;
@@ -69,7 +67,7 @@ export class DriveSession {
   /** The error shown for the last failed voice join, cleared once voice connects. */
   private voiceError: string | null = null;
 
-  constructor(private readonly opts: SessionOptions) {
+  constructor(private opts: SessionOptions) {
     this.pos = opts.pos;
     this.view = {
       myId: null,
@@ -81,7 +79,6 @@ export class DriveSession {
       randomAvailable: false,
       notice: null,
       speakers: [],
-      heard: null,
       socket: 'connecting',
       voiceConnected: false,
       audioBlocked: false,
@@ -116,6 +113,19 @@ export class DriveSession {
   command(cmd: Command): void {
     if (cmd === 'connect' || cmd === 'random') this.pendingMove = cmd;
     this.socket.send({ t: 'cmd', cmd });
+  }
+
+  /**
+   * In-app Settings changed the car or language mid-session: say hello again.
+   * The server treats it as a returning phone (same clientId, so same car,
+   * room and voice state), renames the car in the roster and hears commands in
+   * the new language; the resent `assigned` for the same room is a no-op for
+   * LiveKit. No protocol change.
+   */
+  updateIdentity(profile: CarProfile, lang: Lang): void {
+    this.opts = { ...this.opts, profile, lang };
+    this.update({ profile });
+    this.socket.send(this.hello());
   }
 
   updatePosition(pos: LatLng): void {
@@ -178,10 +188,9 @@ export class DriveSession {
       case 'state':
         this.voice.apply(msg.state);
         if (msg.cmd) chimes[msg.cmd]();
-        this.update({
-          state: msg.state,
-          heard: msg.cmd ? { cmd: msg.cmd, source: msg.source ?? 'button', at: Date.now() } : this.view.heard,
-        });
+        // No on-screen "heard" confirmation for any source (owner, 2026-09-26):
+        // the state change plus the Discord sound is the whole feedback.
+        this.update({ state: msg.state });
         break;
       case 'reset':
         void this.voice.leave();
@@ -189,7 +198,6 @@ export class DriveSession {
           room: null,
           state: joinState(this.opts.mode),
           speakers: [],
-          heard: null,
           closest: null,
           randomAvailable: false,
           notice: null,

@@ -56,6 +56,11 @@ export function demoCar(): CarProfile {
   return car;
 }
 
+/** Settings in demo mode: the tab's car is edited like a saved profile, but kept for this tab only. */
+export function saveDemoCar(profile: CarProfile): void {
+  write('session', 'roadies.demoCar', JSON.stringify(profile));
+}
+
 /** Normal mode: the profile from the setup screen, kept on this device. */
 export function savedProfile(): CarProfile | null {
   const saved = read('local', 'roadies.profile');

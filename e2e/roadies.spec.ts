@@ -29,7 +29,7 @@ async function phone(browser: Browser, spot: string, { live = true } = {}): Prom
   await page.goto(`${BASE}/demo?spot=${spot}`);
   // Your jam: "connect" is today's closest-room join (unchanged behavior).
   await page.getByRole('button', { name: 'Connect' }).click();
-  await expect(page.locator('.voice-status')).toHaveText(/Voice Connected/);
+  await expect(page.locator('.voice-status')).toHaveText(/Live/);
   await expect(page.locator('.banner')).toHaveText('MUTED · say “unmute”');
   if (live) {
     await page.getByRole('button', { name: 'Unmute' }).click();
@@ -74,7 +74,7 @@ test('two phones in the same jam share a room and hear each other', async ({ bro
   const a = await phone(browser, 'sfo');
   const b = await phone(browser, 'sfo');
   await expect(a.locator('.status-title')).toHaveText('SFO #1');
-  await expect(b.locator('.status-sub')).toHaveText('2 roadies in this room');
+  await expect(b.locator('.status-sub')).toHaveText('2');
   await expect.poll(() => subscribed(a)).toBe(1);
   await expect.poll(() => subscribed(b)).toBe(1);
 
@@ -114,7 +114,9 @@ test('saying "mute" hides your mic from the room but not from the listener', asy
 
   expect((await say(request, idA, 'Mute.')).cmd).toBe('mute');
   await expect(a.locator('.banner')).toHaveText('MUTED · say “unmute”');
-  await expect(a.getByTestId('hint')).toHaveText('✓ Heard “mute”');
+  // The state change (and Discord's sound) is the whole confirmation: no "Heard …" pop-up.
+  await expect(a.getByRole('button', { name: 'Unmute' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(a.getByText(/Heard/)).toHaveCount(0);
   await a.screenshot({ path: `${SHOTS}/phone-muted.png` });
   // B loses A's audio (permission revoked)...
   await expect.poll(() => subscribed(b)).toBe(0);
@@ -157,10 +159,12 @@ test('disconnect and connect by voice', async ({ browser, request }) => {
   const idA = await myId(a);
 
   await say(request, idA, 'disconnect');
-  await expect(a.locator('.status-title')).toHaveText('Disconnected');
-  await expect(a.getByTestId('hint')).toContainText('connect');
-  // Room count, glanceable alone as with company - no "Just you so far" sentence.
-  await expect(b.locator('.status-sub')).toHaveText('1 roadies in this room');
+  // Back on Your jam, its "connect" card showing who you'd join right now.
+  await expect(a.locator('.jam-card')).toBeVisible();
+  await expect(a.getByRole('button', { name: 'Connect' })).toContainText('SFO #1');
+  // The room's head count, a number not a sentence.
+  await expect(b.locator('.status-sub')).toHaveText('1');
+  await expect(b.locator('.status-sub')).toHaveAttribute('aria-label', '1 roadie in this room');
   await expect.poll(() => subscribed(b)).toBe(0);
   // Still listening for "connect".
   expect(await listenerHears(request, idA)).toBe(true);
@@ -168,7 +172,7 @@ test('disconnect and connect by voice', async ({ browser, request }) => {
 
   await say(request, idA, 'connect');
   await expect(a.locator('.status-title')).toHaveText('SFO #1');
-  await expect(b.locator('.status-sub')).toHaveText('2 roadies in this room');
+  await expect(b.locator('.status-sub')).toHaveText('2');
   await expect.poll(() => subscribed(b)).toBe(1);
 });
 
@@ -178,20 +182,20 @@ test('a French phone: French screen, and saying "coupe le micro" mutes it', asyn
   const page = await context.newPage();
   await page.goto(`${BASE}/demo?spot=sfo`);
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
-  await expect(page.getByRole('button', { name: 'Connexion' })).toContainText('connexion');
+  await expect(page.getByRole('button', { name: 'Connexion' })).toContainText('Connexion');
   await page.getByRole('button', { name: 'Connexion' }).click();
-  await expect(page.locator('.voice-status')).toHaveText(/Vocal connecté/);
+  await expect(page.locator('.voice-status')).toHaveText(/En direct/);
   await expect(page.locator('.banner')).toHaveText('MICRO COUPÉ · dis « active le micro »');
 
   // The listener hears this phone in French.
   const id = await myId(page);
   await expect.poll(async () => (await serverState(request)).heardLangs?.[id]).toBe('fr');
 
-  await page.getByRole('button', { name: 'Activer le micro' }).click();
+  await page.getByRole('button', { name: 'Active le micro' }).click();
   await expect(page.locator('.banner')).toHaveCount(0);
   expect((await say(request, id, 'Coupe le micro.')).cmd).toBe('mute');
   await expect(page.locator('.banner')).toHaveText('MICRO COUPÉ · dis « active le micro »');
-  await expect(page.getByTestId('hint')).toHaveText('✓ Compris : « coupe le micro »');
+  await expect(page.getByRole('button', { name: 'Active le micro' })).toHaveAttribute('aria-pressed', 'true');
   await page.screenshot({ path: `${SHOTS}/phone-fr-muted.png` });
   // English still works.
   expect((await say(request, id, 'unmute')).cmd).toBe('unmute');
@@ -205,7 +209,7 @@ test('buttons do the same as voice commands', async ({ browser }) => {
   await a.getByRole('button', { name: 'Unmute' }).click();
   await expect(a.locator('.banner')).toHaveCount(0);
   await a.getByRole('button', { name: 'Disconnect' }).click();
-  await expect(a.locator('.status-title')).toHaveText('Disconnected');
+  await expect(a.locator('.jam-card')).toBeVisible();
   await a.getByRole('button', { name: 'Connect' }).click();
   await expect(a.locator('.status-title')).toHaveText('Redwood City #1');
 });
@@ -221,13 +225,13 @@ test('tapping the "random" card jumps to a different open room', async ({ browse
   await phone(browser, 'palo-alto');
 
   await a1.getByRole('button', { name: 'Disconnect' }).click();
-  await expect(a1.locator('.status-title')).toHaveText('Disconnected');
+  await expect(a1.locator('.jam-card')).toBeVisible();
   // SFO still has two other active members, so "random" must skip it and offer Palo Alto.
   await expect(a1.getByRole('button', { name: 'Random' })).toBeEnabled();
 
   await a1.getByRole('button', { name: 'Random' }).click();
   await expect(a1.locator('.status-title')).toHaveText('Palo Alto #1');
-  await expect(b1.locator('.status-sub')).toHaveText('3 roadies in this room');
+  await expect(b1.locator('.status-sub')).toHaveText('3');
 });
 
 test('a lone commuter is merged into the nearest open room after 15 seconds', async ({ browser }) => {
@@ -239,13 +243,13 @@ test('a lone commuter is merged into the nearest open room after 15 seconds', as
   await phone(browser, 'san-jose');
   const d = await phone(browser, 'san-jose');
   const loner = await phone(browser, 'loner');
-  await expect(loner.locator('.status-sub')).toHaveText('1 roadies in this room');
+  await expect(loner.locator('.status-sub')).toHaveText('1');
   // Free a seat in San Jose — but not down to exactly one active member, so it doesn't
   // start its own alone-timer — giving the loner somewhere to be merged into.
   await d.getByRole('button', { name: 'Disconnect' }).click();
   await expect(loner.locator('.status-title')).toHaveText('San Jose 101/880 #1', { timeout: 30_000 });
-  await expect(loner.locator('.status-sub')).toHaveText('4 roadies in this room');
-  await expect(a.locator('.status-sub')).toHaveText('4 roadies in this room');
+  await expect(loner.locator('.status-sub')).toHaveText('4');
+  await expect(a.locator('.status-sub')).toHaveText('4');
   await expect.poll(() => subscribed(loner), { timeout: 20_000 }).toBe(3);
 });
 
@@ -292,20 +296,74 @@ test('normal mode: a random car is assigned on first open, no forced /setup; cus
   await page.goto(`${BASE}/`);
   // Your jam right away - never forced to /setup - with an auto-assigned car.
   await expect(page).toHaveURL(`${BASE}/`);
-  await expect(page.locator('.car-chip')).toBeVisible();
+  await expect(page.locator('.me-chip')).toBeVisible();
 
-  // Setup stays reachable any time from its gear icon.
+  // Settings stays reachable any time from your car chip, and opens in place.
   await page.getByRole('link', { name: 'Settings' }).click();
-  await expect(page).toHaveURL(/\/setup$/);
+  await expect(page.locator('.setup')).toBeVisible();
   await page.getByLabel('Purple').click();
   await page.getByRole('button', { name: 'Miata', exact: true }).click();
-  await page.getByLabel('Display name').fill('Fig');
+  await page.getByLabel('Name', { exact: true }).fill('Fig');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await expect(page).toHaveURL(`${BASE}/`);
-  await expect(page.getByText('You’re the Fig')).toBeVisible();
+  await expect(page.locator('.me-chip')).toContainText('Fig');
   await page.getByRole('button', { name: 'Connect' }).click();
-  await expect(page.locator('.voice-status')).toHaveText(/Voice Connected/);
+  await expect(page.locator('.voice-status')).toHaveText(/Live/);
   await expect(page.locator('.status-title')).toHaveText('Hospital Curve #1');
-  await expect(page.locator('.me')).toHaveText('Fig');
+  await expect(page.getByRole('img', { name: 'Fig' })).toBeVisible();
+});
+
+test('leaving a call lands on Your jam (no intro replay); back and Settings never break the session', async ({ browser, request }) => {
+  const b = await phone(browser, 'sfo');
+  // Motion on, so the intro really plays on this fresh open.
+  const context = await newContext(browser, { ...devices['Pixel 7'], permissions: ['microphone'], reducedMotion: 'no-preference' });
+  const a = await context.newPage();
+  await a.goto(`${BASE}/demo?spot=sfo`);
+  await expect(a.locator('.intro')).toBeVisible();
+  await a.locator('.intro').click(); // tap skips it
+  await a.getByRole('button', { name: 'Connect' }).click();
+  await expect(a.locator('.status-title')).toHaveText('SFO #1');
+  await expect(b.locator('.status-sub')).toHaveText('2');
+  await a.evaluate(() => ((window as unknown as { first: unknown }).first = window.__roadies));
+  const sameSession = () => a.evaluate(() => (window as unknown as { first: unknown }).first === window.__roadies);
+  const idA = await myId(a);
+
+  // Settings from the voice chat: the call keeps going, and a new name reaches the room.
+  await a.getByRole('link', { name: 'Settings' }).click();
+  await expect(a.locator('.setup')).toBeVisible();
+  await a.getByLabel('Name', { exact: true }).fill('Kiwi');
+  await a.getByRole('button', { name: 'Save' }).click();
+  await expect(a.locator('.status-title')).toHaveText('SFO #1');
+  await expect(b.locator('.people')).toContainText('Kiwi');
+  // Its back arrow returns to the call too.
+  await a.getByRole('link', { name: 'Settings' }).click();
+  await a.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(a.locator('.status-title')).toHaveText('SFO #1');
+
+  // The phone's back button in a call = "disconnect" (the normal command path).
+  await a.goBack();
+  await expect(a.locator('.jam-card')).toBeVisible();
+  await expect(a.locator('.intro')).toHaveCount(0);
+  await expect(b.locator('.status-sub')).toHaveText('1');
+  expect(await listenerHears(request, idA)).toBe(true); // still listening for "connect"
+  // Same Your jam as before joining, its cards wired to the live match.
+  await expect(a.getByRole('button', { name: 'Connect' })).toContainText('SFO #1');
+  await a.getByRole('button', { name: 'Connect' }).click();
+  await expect(a.locator('.status-title')).toHaveText('SFO #1');
+  await expect(b.locator('.status-sub')).toHaveText('2');
+
+  // Leave with the button; a stale "forward" into the ended call bounces back.
+  await a.getByRole('button', { name: 'Disconnect' }).click();
+  await expect(a.locator('.jam-card')).toBeVisible();
+  await a.goForward();
+  await expect(a.locator('.jam-card')).toBeVisible();
+  // Settings from Your jam and back, then rejoin by voice: one session all along.
+  await a.getByRole('link', { name: 'Settings' }).click();
+  await a.goBack();
+  await expect(a.locator('.jam-card')).toBeVisible();
+  await say(request, idA, 'connect');
+  await expect(a.locator('.status-title')).toHaveText('SFO #1');
+  await expect(a.locator('.intro')).toHaveCount(0);
+  expect(await sameSession()).toBe(true);
 });
