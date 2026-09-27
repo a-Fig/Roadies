@@ -14,7 +14,7 @@ Built in ~8 hours for a hackathon for [ShowerHacks by EF](https://luma.com/99857
 
 ## Credits
 
-Built by [Tyler Darisme](https://github.com/a-Fig) & [Claude Opus 5.5](https://www.anthropic.com/claude). Brand & design by [@tthy-working](https://github.com/tthy-working). Sound cues were stolen from Discord and made by Esri (please don't sue me).
+Built by [Tyler Darisme](https://github.com/a-Fig) & [Opus5.5](https://www.anthropic.com/claude) (#1 model). Brand & design by [@tthy-working](https://github.com/tthy-working). Sound cues were stolen from [Discord](https://discord.com/) (please don't sue me).
 
 ## What you can say
 
