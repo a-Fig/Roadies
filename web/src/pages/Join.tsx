@@ -1,6 +1,5 @@
 import {
   colorHex,
-  COMMANDS,
   sayPhrase,
   STATS_PATH,
   type CarProfile,
@@ -9,9 +8,10 @@ import {
   type Mode,
   type PublicStats,
 } from '@roadies/shared';
-import { Fragment, useEffect, useState, type ReactNode } from 'react';
-import { CarIcon } from '../components/icons';
+import { useEffect, useState } from 'react';
+import { CarIcon, GearIcon, PhoneIcon, ShuffleIcon } from '../components/icons';
 import { unlockAudio } from '../lib/chimes';
+import { Intro } from '../intro/Intro';
 import { strings, type Strings } from '../lib/i18n';
 import { DriveSession } from '../lib/session';
 import { Drive } from './Drive';
@@ -29,8 +29,6 @@ interface JoinProps {
   profile: CarProfile;
   spot?: string;
   kicker: string;
-  cta: string;
-  footer?: ReactNode;
 }
 
 function currentPosition(t: Strings): Promise<LatLng> {
@@ -76,10 +74,11 @@ function useDriversTalking(active: boolean): number | null {
 }
 
 /** The one tap that unlocks mic + audio, then the driving screen. */
-export function Join({ mode, lang, profile, spot, kicker, cta, footer }: JoinProps) {
+export function Join({ mode, lang, profile, spot, kicker }: JoinProps) {
   const t = strings(lang);
+  const [introDone, setIntroDone] = useState(false);
   const [session, setSession] = useState<DriveSession | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<'connect' | 'random' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const talking = useDriversTalking(!session);
 
@@ -99,17 +98,17 @@ export function Join({ mode, lang, profile, spot, kicker, cta, footer }: JoinPro
     };
   }, [session, mode]);
 
-  const join = async () => {
-    setBusy(true);
+  const join = async (cmd: 'connect' | 'random') => {
+    setPending(cmd);
     setError(null);
     unlockAudio();
-    const s = new DriveSession({ mode, lang, profile, spot });
+    const s = new DriveSession({ mode, lang, profile, spot, join: cmd === 'random' ? 'random' : undefined });
     try {
       await s.voice.prepareMic();
       if (mode === 'live') s.updatePosition(await currentPosition(t));
     } catch (err) {
       await s.stop();
-      setBusy(false);
+      setPending(null);
       const message = (err as Error).message;
       setError(/permission|denied|not allowed/i.test(message) ? t.needMic : message);
       return;
@@ -119,50 +118,61 @@ export function Join({ mode, lang, profile, spot, kicker, cta, footer }: JoinPro
     setSession(s);
   };
 
+  if (!introDone) return <Intro onDone={() => setIntroDone(true)} />;
   if (session) return <Drive session={session} lang={lang} />;
-
-  const phrases = COMMANDS.map((cmd) => sayPhrase(lang, cmd));
 
   return (
     <main className="splash">
-      <div className="brand">
-        <img src="/favicon.svg" alt="" width={56} height={56} />
-        <span>Roadies</span>
-      </div>
-      <p className="kicker">{kicker}</p>
-      {/* Always rendered, so the button below doesn't shift when the count arrives. */}
-      <p className="live-count">
-        {talking !== null && (
-          <>
-            <span className="live-dot" aria-hidden="true" />
-            {talking === 0 ? t.nobodyTalking : t.driversTalking(talking)}
-          </>
+      <div className="jam-top">
+        <div className="wordmark">
+          <img src="/favicon.svg" alt="" width={40} height={40} />
+          <span>Roadies</span>
+        </div>
+        {mode === 'live' && (
+          <a className="icon-btn" href="/setup" aria-label={t.settings}>
+            <GearIcon />
+          </a>
         )}
-      </p>
-      <div className="car-card">
-        <span className="avatar big" style={{ color: colorHex(profile.color) }}>
-          <CarIcon />
-        </span>
-        <div>
+      </div>
+
+      <div className="jam-card">
+        <p className="kicker">{kicker}</p>
+        {/* Always rendered, so the layout below doesn't shift when the count arrives. */}
+        <p className="live-count">
+          {talking !== null && (
+            <>
+              <span className="live-dot" aria-hidden="true" />
+              {talking === 0 ? t.nobodyTalking : t.driversTalking(talking)}
+            </>
+          )}
+        </p>
+        <div className="car-card">
+          <span className="avatar big" style={{ color: colorHex(profile.color) }}>
+            <CarIcon />
+          </span>
           <div className="car-name">{t.youAre(profile.name)}</div>
-          <div className="car-sub">{t.tagline}</div>
         </div>
       </div>
-      <button className="primary big" onClick={() => void join()} disabled={busy}>
-        {busy ? t.starting : cta}
-      </button>
+
+      <nav className="options">
+        <button className="option connect" aria-label={t.connect} disabled={!!pending} onClick={() => void join('connect')}>
+          <span className="option-cmd">
+            <PhoneIcon />
+            {t.quote(sayPhrase(lang, 'connect'))}
+          </span>
+          {pending === 'connect' && <span className="option-desc">{t.starting}</span>}
+        </button>
+        <button className="option random" aria-label={t.random} disabled={!!pending} onClick={() => void join('random')}>
+          <span className="option-cmd">
+            <ShuffleIcon />
+            {t.quote(sayPhrase(lang, 'random'))}
+          </span>
+          {pending === 'random' && <span className="option-desc">{t.starting}</span>}
+        </button>
+      </nav>
+
       {error && <p className="notice error">{error}</p>}
-      <p className="fine">
-        {t.handsFree}{' '}
-        {phrases.map((p, i) => (
-          <Fragment key={p}>
-            {i > 0 && (i < phrases.length - 1 ? ', ' : ` ${t.or} `)}
-            <b>{p}</b>
-          </Fragment>
-        ))}
-        . {t.privacy}
-      </p>
-      {footer}
+      <p className="fine">{t.privacy}</p>
     </main>
   );
 }

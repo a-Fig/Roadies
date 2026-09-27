@@ -69,6 +69,15 @@ export const ShuffleIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const GearIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path
+      fill="currentColor"
+      d="m19.4 13-.1-1 1.6-1.4a1 1 0 0 0 .2-1.3l-1.6-2.7a1 1 0 0 0-1.2-.4l-1.9.7a7.6 7.6 0 0 0-1.7-1l-.3-2a1 1 0 0 0-1-.9h-3.2a1 1 0 0 0-1 .9l-.3 2a7.6 7.6 0 0 0-1.7 1l-1.9-.7a1 1 0 0 0-1.2.4L2.5 9.3a1 1 0 0 0 .2 1.3L4.3 12l-.1 1 -1.6 1.4a1 1 0 0 0-.2 1.3l1.6 2.7a1 1 0 0 0 1.2.4l1.9-.7a7.6 7.6 0 0 0 1.7 1l.3 2a1 1 0 0 0 1 .9h3.2a1 1 0 0 0 1-.9l.3-2a7.6 7.6 0 0 0 1.7-1l1.9.7a1 1 0 0 0 1.2-.4l1.6-2.7a1 1 0 0 0-.2-1.3L19.4 13Zm-7.4 3a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"
+    />
+  </Icon>
+);
+
 export const CarIcon = (p: IconProps) => (
   <Icon {...p}>
     <path

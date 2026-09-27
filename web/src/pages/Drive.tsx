@@ -1,5 +1,6 @@
-import { colorHex, isTransmitting, sayPhrase, type Command, type Lang } from '@roadies/shared';
+import { colorHex, isTransmitting, sayPhrase, type Command, type Lang, type RosterMember } from '@roadies/shared';
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { CarArt } from '../components/CarArt';
 import { CarIcon, HangUpIcon, HeadphonesIcon, MicIcon, PhoneIcon, ShuffleIcon, SpeakerIcon } from '../components/icons';
 import { unlockAudio } from '../lib/chimes';
 import { strings } from '../lib/i18n';
@@ -84,6 +85,9 @@ export function Drive({ session, lang }: { session: DriveSession; lang: Lang }) 
   else if (state.selfDeaf) talkLine = t.cantHear;
   else talkLine = t.quiet;
 
+  const isMuted = (m: RosterMember) => m.state.selfMute || m.state.selfDeaf;
+  const isSpeaking = (m: RosterMember) => view.speakers.includes(m.id) && isTransmitting(m.state);
+
   const heardFresh = view.heard && now - view.heard.at < HEARD_FLASH_MS ? view.heard : null;
   const noticeFresh = view.notice && now - view.notice.at < NOTICE_FLASH_MS ? view.notice : null;
   const hint = heardFresh
@@ -125,6 +129,37 @@ export function Drive({ session, lang }: { session: DriveSession; lang: Lang }) 
         {tone === 'muted' && <p className="banner">{t.mutedBanner(say('unmute'))}</p>}
         {tone === 'deaf' && <p className="banner">{t.deafenedBanner(say('undeafen'))}</p>}
       </section>
+
+      {state.connected && room && (
+        <div className="avatar-grid" data-testid="avatar-grid">
+          <div className={`avatar-tile ${meTalking ? 'speaking' : ''}`}>
+            <span className="badge">
+              <CarArt color={colorHex(profile.color)} size={56} title={profile.name} />
+              {(state.selfMute || state.selfDeaf) && (
+                <span className="muted-badge" aria-hidden="true">
+                  <MicIcon slashed />
+                </span>
+              )}
+            </span>
+            <span className="name">{profile.name}</span>
+          </div>
+          {others.slice(0, 3).map((m) => (
+            <div key={m.id} className={`avatar-tile ${isSpeaking(m) ? 'speaking' : ''}`}>
+              <span className="badge">
+                <span className="avatar big" style={{ color: colorHex(m.color) }}>
+                  <CarIcon />
+                </span>
+                {isMuted(m) && (
+                  <span className="muted-badge" aria-hidden="true">
+                    <MicIcon slashed />
+                  </span>
+                )}
+              </span>
+              <span className="name">{m.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {view.audioBlocked && state.connected && (
         <button className="notice" onClick={() => void session.voice.startAudio()}>
