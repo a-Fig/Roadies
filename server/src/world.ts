@@ -82,7 +82,7 @@ export class World {
   readonly matchmaker: Matchmaker;
   readonly demo: DemoDirector;
   private readonly cars = new Map<string, Car>();
-  /** The last `closest` preview sent per disconnected car (`roomId:memberId|randomAvailable`), to dedupe. */
+  /** The last `closest` preview sent per disconnected car (`roomId:memberId`), to dedupe. */
   private readonly closestSeen = new Map<string, string>();
   private readonly log: string[] = [];
   private readonly now: () => number;
@@ -234,10 +234,9 @@ export class World {
       // change, no log — DESIGN.md §3/§4).
       if (before.connected) return;
       const events = this.matchmaker.random(carId, this.now(), this.rng);
-      if (!events) {
-        car.send?.({ t: 'notice', code: 'no-open-rooms' });
-        return;
-      }
+      // Nowhere else open (e.g. the only room is your own): behave like
+      // `connect` — join the closest open room, or reactivate in place.
+      if (!events) return this.rejoin(car, before, cmd, source);
       if (source === 'voice') this.addLog(`🗣️ ${car.profile.name}: “${cmd}”`);
       this.closestSeen.delete(carId);
       // `random` always switches rooms: wait for the new `assigned` (§below).
@@ -245,24 +244,7 @@ export class World {
       return;
     }
 
-    if (cmd === 'connect' && !before.connected) {
-      const events = this.matchmaker.reconnect(carId, this.now());
-      if (source === 'voice') this.addLog(`🗣️ ${car.profile.name}: “${cmd}”`);
-      this.closestSeen.delete(carId);
-      const state = applyCommand(before, cmd);
-      if (events.some((e) => e.type === 'joined')) {
-        // A real room switch: wait for `assigned` (§below).
-        this.moveThenNotify(car, state, cmd, source, events);
-      } else {
-        // Reactivated its own ghost room in place: no LiveKit switch, so
-        // there's no `assigned` to wait for — send state immediately.
-        car.state = state;
-        car.send?.({ t: 'state', state, cmd, source });
-        this.opts.onCommand?.(car, cmd, source);
-        this.handle(events);
-      }
-      return;
-    }
+    if (cmd === 'connect' && !before.connected) return this.rejoin(car, before, cmd, source);
 
     car.state = applyCommand(before, cmd);
     car.send?.({ t: 'state', state: car.state, cmd, source });
@@ -275,6 +257,25 @@ export class World {
     } else {
       const room = this.matchmaker.roomOf(carId);
       if (room) this.broadcastRoster(room);
+    }
+  }
+
+  /** `connect` while disconnected (and `random`'s fallback): the closest open room, or reactivate in place. */
+  private rejoin(car: Car, before: VoiceState, cmd: Command, source: CommandSource): void {
+    const events = this.matchmaker.reconnect(car.id, this.now());
+    if (source === 'voice') this.addLog(`🗣️ ${car.profile.name}: “${cmd}”`);
+    this.closestSeen.delete(car.id);
+    const state = applyCommand(before, cmd);
+    if (events.some((e) => e.type === 'joined')) {
+      // A real room switch: wait for `assigned` (§below).
+      this.moveThenNotify(car, state, cmd, source, events);
+    } else {
+      // Reactivated its own ghost room in place: no LiveKit switch, so
+      // there's no `assigned` to wait for — send state immediately.
+      car.state = state;
+      car.send?.({ t: 'state', state, cmd, source });
+      this.opts.onCommand?.(car, cmd, source);
+      this.handle(events);
     }
   }
 
@@ -414,8 +415,8 @@ export class World {
 
   /**
    * Tell a disconnected car who `connect` would match with right now (or null,
-   * meaning it would start a new room) and whether `random` has anywhere to
-   * go — same computation as `reconnect`/`random`, so they can never disagree.
+   * meaning it would start a new room) — same computation as `reconnect`, so
+   * they can never disagree.
    * Only sends when the driver id or room id actually changed.
    */
   private sendClosestPreview(carId: string): void {
@@ -426,8 +427,7 @@ export class World {
     if (!car || car.send === null) return;
     const match = this.matchmaker.closestOpen(carId, car.pos);
     const key = match ? `${match.roomId}:${match.memberId}` : null;
-    const randomAvailable = this.matchmaker.hasRandomTarget(carId);
-    const dedupeKey = `${key}|${randomAvailable}`;
+    const dedupeKey = `${key}`;
     if (this.closestSeen.get(carId) === dedupeKey) return;
     this.closestSeen.set(carId, dedupeKey);
     const other = match ? this.cars.get(match.memberId) : undefined;
@@ -435,7 +435,6 @@ export class World {
     car.send({
       t: 'closest',
       match: other && room ? { name: other.profile.name, color: other.profile.color, roomName: room.name } : null,
-      randomAvailable,
     });
   }
 

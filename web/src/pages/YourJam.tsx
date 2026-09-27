@@ -95,8 +95,6 @@ export function YourJam({ mode, lang, profile, view, pending, error, onCommand, 
   const ghost = !!view && !view.state.connected;
   const closest = view?.closest;
   const connectDesc = ghost ? (closest ? `${closest.name} · ${closest.roomName}` : t.newRoom) : t.connectDesc;
-  const randomOpen = !ghost || view.randomAvailable;
-  const randomDesc = randomOpen ? t.randomDesc : t.notices['no-open-rooms'];
 
   const card = (cmd: 'connect' | 'random', desc: string, enabled: boolean) => (
     <button
@@ -151,7 +149,7 @@ export function YourJam({ mode, lang, profile, view, pending, error, onCommand, 
         )}
         <nav className="commands">
           {card('connect', connectDesc, true)}
-          {card('random', randomDesc, randomOpen)}
+          {card('random', t.randomDesc, true)}
         </nav>
       </section>
 
