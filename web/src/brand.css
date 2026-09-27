@@ -1,0 +1,106 @@
+/* Roadies brand kit: the girlfriend's palette (scratchpad/gf-roadies), ported
+   for our own screens without touching the existing Discord-style tokens in
+   styles.css. Everything here is scoped under `.brand-kit` (NOT `.brand` -
+   styles.css already has a `.brand` class for Join/Setup's header row, and
+   colliding with it made every brand-kit section lay out as a flex row) so
+   it can sit next to Join/Setup/Drive/Presenter without changing how they
+   look. Screens opt into this kit later, on top of this kit's components
+   (Intro, CarArt, the icon).
+
+   Light values are hers exactly (README.md's brand table). Dark values are
+   tuned for WCAG contrast against an ink-based background — see the
+   comment below the media query for the numbers. */
+
+.brand-kit {
+  --brand-orange: #f4682c;
+  --brand-teal: #137584;
+  --brand-cream: #fffcee;
+  --brand-ink: #2a1f1f;
+
+  /* Extras from her base.css */
+  --brand-ink-soft: rgb(42 31 31 / 0.66);
+  --brand-card: #ffffff;
+  --brand-orange-tint: #fde6d6;
+  --brand-teal-tint: #dcece9;
+  --brand-bubble: #b7e8f0;
+  --brand-bubble-text: #000000;
+  --brand-shadow-card:
+    0 1px 2px rgb(42 31 31 / 0.06),
+    0 8px 24px rgb(42 31 31 / 0.07);
+
+  /* What actually changes between light/dark */
+  --brand-bg: var(--brand-cream);
+  --brand-fg: var(--brand-ink);
+
+  --brand-font-display: 'Bepory', 'Roboto', system-ui, sans-serif;
+  --brand-font-body: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  color-scheme: light dark;
+  background: var(--brand-bg);
+  color: var(--brand-fg);
+}
+
+/* Ink-based background, cream text, per the brief. Orange and teal are both
+   retuned (relative-luminance contrast against #2A1F1F):
+     --brand-orange 5.22:1 -> 6.18:1  (#F4682C -> #FF7A45)
+     --brand-teal   2.97:1 -> 6.03:1  (#137584 -> #2BAEC0)
+   Below ~3:1 an accent color reads as "another shade of the background"
+   rather than orange/teal, which is what the un-tuned teal did.
+
+   Applied either by the OS dark-mode media query, or by an explicit
+   `data-theme="dark"` on the `.brand-kit` element (used by the /brand
+   preview page's toggle, so both themes can be inspected without changing
+   the OS setting) - `:not([data-theme='light'])` lets that same toggle force
+   *light* even when the OS prefers dark. Duplicated rather than shared
+   because plain CSS can't combine a media query and a bare selector in one
+   rule; keep both blocks in sync if these numbers ever change. */
+.brand-kit[data-theme='dark'] {
+  --brand-bg: var(--brand-ink);
+  --brand-fg: var(--brand-cream);
+  --brand-orange: #ff7a45;
+  --brand-teal: #2baec0;
+  --brand-card: #3a2c2c;
+  --brand-orange-tint: rgb(255 122 69 / 0.16);
+  --brand-teal-tint: rgb(43 174 192 / 0.18);
+  --brand-ink-soft: rgb(255 252 238 / 0.66);
+  --brand-bubble: #a9d8e0;
+  --brand-bubble-text: #14282b;
+  --brand-shadow-card:
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 8px 24px rgb(0 0 0 / 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  .brand-kit:not([data-theme='light']):not([data-theme='dark']) {
+    --brand-bg: var(--brand-ink);
+    --brand-fg: var(--brand-cream);
+    --brand-orange: #ff7a45;
+    --brand-teal: #2baec0;
+    --brand-card: #3a2c2c;
+    --brand-orange-tint: rgb(255 122 69 / 0.16);
+    --brand-teal-tint: rgb(43 174 192 / 0.18);
+    --brand-ink-soft: rgb(255 252 238 / 0.66);
+    /* Speech bubbles stay light (like her cream ones) so the black bubble
+       text stays readable; only the page around them goes dark. */
+    --brand-bubble: #a9d8e0;
+    --brand-bubble-text: #14282b;
+    --brand-shadow-card:
+      0 1px 2px rgb(0 0 0 / 0.4),
+      0 8px 24px rgb(0 0 0 / 0.5);
+  }
+}
+
+/* Bepory is personal-use licensed, so it's never committed (see .gitignore
+   and DESIGN.md). It loads from public/fonts/Bepory.otf if present; without
+   it, --brand-font-display falls back to Roboto and the app still works
+   (the logo and intro wordmark are vector outlines either way). */
+@font-face {
+  font-family: 'Bepory';
+  src:
+    local('Bepory'),
+    local('Bepory Regular'),
+    url('/fonts/Bepory.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

@@ -28,6 +28,7 @@ and this doc disagree, fix one of them.
 | Join state | Normal mode joins **live** (unmuted), Discord default. Demo mode joins **muted** (you hear the room; say "unmute" to talk), because judges' phones share one table and open mics would feed back. Changed 2026-09-26 in the laptop session. |
 | Phone UI | **Glanceable driving mode**: one huge status line, giant buttons, no member list. |
 | Audio feedback | **Discord's own voice sounds** (mute, deafen, join, leave, …), so people instantly know them. Taken from Discord's web client for this non-commercial demo (owner's call, 2026-09-26); replace before any public release. |
+| Fonts | **Bepory** (headings) + **Roboto** (body), from the owner's girlfriend's brand. Bepory is a free personal-use file, kept out of git (`web/public/fonts/`, gitignored) with a Roboto fallback if it's absent; owner's call, 2026-09-26; buy a license from rantaustudio.com before any public release. |
 | After `disconnect` | Mic keeps listening for `connect` (screen says so). Rejoin old room if it has space, else re-match. |
 | Projector | Live map + Discord-style channel list + hidden presenter controls + QR code. |
 | Home page | Shows a live count, e.g. "12 drivers talking": drivers with an open connection who haven't disconnected; bots excluded. |

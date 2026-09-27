@@ -8,3 +8,7 @@ playwright-report/
 *.log
 utterances/
 .claude/worktrees/
+
+# Bepory is personal-use licensed (1001fonts FFP); never commit it. See
+# DESIGN.md's Fonts row and web/src/brand.css's @font-face comment.
+web/public/fonts/

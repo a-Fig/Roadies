@@ -21,19 +21,30 @@ export const CAR_MAKES = [
   'Jetta',
 ] as const;
 
+// Hexes are tuned (WCAG relative-luminance contrast, not just eyeballed) so every
+// color still reads as a CarArt body fill on both the brand-kit backgrounds: cream
+// (#FFFCEE) and dark ink (#2A1F1F, see web/src/brand.css). A few of the original
+// Discord-style swatches were nearly invisible on one of the two (White/Silver/Yellow
+// wash out on cream; Black/Purple/Brick washed out on ink) and were nudged in
+// lightness only, keeping their hue and name. Tangerine and Brick are the girlfriend's
+// design's orange (#F4682C, brand.css --brand-orange) and her red car's body color
+// (originally #960013, lightened for legibility on the dark background) — "make more
+// colors" was the owner's ask.
 export const CAR_COLORS = [
   { name: 'Teal', hex: '#1abc9c' },
-  { name: 'Silver', hex: '#c0c6cf' },
+  { name: 'Silver', hex: '#96a0ab' },
   { name: 'Red', hex: '#f04747' },
   { name: 'Blue', hex: '#4f8cff' },
-  { name: 'White', hex: '#f2f3f5' },
-  { name: 'Black', hex: '#5c5f66' },
+  { name: 'White', hex: '#c2cbd6' },
+  { name: 'Black', hex: '#6e7078' },
   { name: 'Orange', hex: '#ff8c1a' },
-  { name: 'Yellow', hex: '#f5d90a' },
+  { name: 'Yellow', hex: '#b8a600' },
   { name: 'Green', hex: '#3ba55d' },
-  { name: 'Purple', hex: '#9b59b6' },
+  { name: 'Purple', hex: '#a868c2' },
   { name: 'Pink', hex: '#ff73c3' },
   { name: 'Gold', hex: '#d4a017' },
+  { name: 'Tangerine', hex: '#f4682c' },
+  { name: 'Brick', hex: '#b94430' },
 ] as const;
 
 export interface CarProfile {
