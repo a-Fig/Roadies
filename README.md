@@ -21,7 +21,7 @@
 
 Open the web app and you get a car name, like "Teal Civic", and a seat in a voice room with up to three of the drivers nearest you on the road. It works like a Discord voice channel for your stretch of highway, except you control it by voice: say **"mute"**, **"deafen"** or **"disconnect"** out loud and it happens, without touching the phone.
 
-**Try it: [roadies.afig.dev/demo](https://roadies.afig.dev/)**
+**Try it: [roadies.afig.dev](https://roadies.afig.dev/)**
 
 Built in ~8 hours for a hackathon for [ShowerHacks by EF](https://luma.com/99857qk9?tk=jppxZQ)
 
