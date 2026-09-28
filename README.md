@@ -19,10 +19,6 @@
   <img src="docs/images/hero.png" alt="Roadies: three phone screens showing a jam card, a live voice room and a muted voice room" width="100%">
 </p>
 
-# [Roadies](https://roadies.afig.dev/)
-
-**Hands-free voice chat for drivers stuck in the same traffic jam.**
-
 Open the web app and you get a car name, like "Teal Civic", and a seat in a voice room with up to three of the drivers nearest you on the road. It works like a Discord voice channel for your stretch of highway, except you control it by voice: say **"mute"**, **"deafen"** or **"disconnect"** out loud and it happens, without touching the phone.
 
 **Try it: [roadies.afig.dev/demo](https://roadies.afig.dev/)**
