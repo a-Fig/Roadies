@@ -23,7 +23,7 @@ Open the web app and you get a car name, like "Teal Civic", and a seat in a voic
 
 **Try it: [roadies.afig.dev](https://roadies.afig.dev/)**
 
-Built in ~8 hours for a hackathon for [ShowerHacks by EF](https://luma.com/99857qk9?tk=jppxZQ)
+Built in ~8 hours for [ShowerHacks by EF](https://luma.com/99857qk9?tk=jppxZQ)
 
 ## Credits
 
