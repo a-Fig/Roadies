@@ -25,7 +25,7 @@ and this doc disagree, fix one of them.
 | Demo locations | Server assigns simulated spots on real 101 NB choke points; cars inch forward. Normal link uses real GPS. |
 | Voice transport | **LiveKit** (Cloud in prod, `livekit-server --dev` locally). |
 | Command recognition | **Server-side**: hidden listener joins each room, Google Speech-to-Text on each person's audio. |
-| Hosting | Node + TypeScript server on **Google Cloud Run** (1 always-on instance, CPU always allocated). Laptop + tunnel as backup. |
+| Hosting | Node + TypeScript server on **Google Cloud Run** (at most 1 instance, scales to zero when idle, CPU billed only while sockets are open). Laptop + tunnel as backup. |
 | Join state | Normal mode joins **live** (unmuted), Discord default. Demo mode joins **muted** (you hear the room; say "unmute" to talk), because judges' phones share one table and open mics would feed back. Changed 2026-09-26 in the laptop session. |
 | Flow | Open → the girlfriend's intro animation (every open of Your jam; tap skips; skipped under `prefers-reduced-motion`) → **Your jam** (the restyled Join screen: her wordmark, a jam card with live "drivers talking" count, and two big cards — `connect` / `random` — leading with the spoken command word) → **voice chat** (the restyled Drive screen once connected). The first tap on either card unlocks audio + mic and sends the first join; `connect` is today's closest-room join, `random` seats you in a uniformly random open room (or a new one) instead. Normal mode never forces `/setup`: first-ever open auto-assigns a random car, saved on the device; Setup stays reachable from a small gear icon on Your jam. Added 2026-09-26 (girlfriend's-design restyle). Polished 2026-09-26: `disconnect` lands back on Your jam (the cards then preview what `connect`/`random` would do; no intro replay); Settings opens in place from Your jam and the voice chat, with a back button; browser/Android back from the voice chat sends `disconnect`. |
 | Phone UI | **Glanceable driving mode**: one huge status line, giant buttons, no member list on the demo/scripted screens; the restyled voice-chat screen adds a small grid of up to 4 avatar circles (speaking ring, muted badge; every driver, "You" included, is a cream car on a circle in their car color, labeled with their car name or "You"). On desktop the phone screens sit in a phone frame. **No "Heard …" confirmation for any source (2026-09-26, decided by Tyler): the state change plus the Discord sound is the only confirmation.** Minimal text throughout: drivers glance, they don't read — no paragraphs or instruction blocks, at most one short safety line (the privacy notice). Dark mode follows the OS setting on every phone screen (brand-kit tokens, `web/src/styles.css`); the presenter/projector is exempt and always dark. |
@@ -298,7 +298,7 @@ if time runs out (cut from the bottom):
 - [ ] GCP project: enable Speech-to-Text + Cloud Run; `gcloud auth`.
 - [ ] Run locally against real LiveKit + Google STT; tune command recognition.
 - [ ] Test on a real iPhone (Safari) and Android (Chrome).
-- [ ] Deploy to Cloud Run (min = max = 1 instance, CPU always allocated).
+- [ ] Deploy to Cloud Run (max 1 instance, scale to zero, CPU only during requests).
 - [ ] Rehearse the demo end to end at least once, a day early.
 
 ## 12. Background use (maps open) — roadmap

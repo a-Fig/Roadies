@@ -36,8 +36,15 @@ branch/PR cancels the previous run.
 
 ## Deploy (Google Cloud Run)
 
-One always-on instance: all state is in memory, and the command listener runs
-continuously.
+At most one instance, because all state is in memory. It scales to zero when
+idle and bills CPU only while a request is open. Every phone and the projector
+hold the `/ws` socket open for the whole session, so the instance keeps full
+CPU, and the command listener keeps working, as long as anyone is connected.
+When nobody has been connected for about 15 minutes the instance shuts down and
+its in-memory state (rooms, `/api/stats` counters) is gone. The next visitor
+waits about 4 to 7 seconds for a cold start, so open the page a minute before
+a demo. For a zero-wait instance, add `--min-instances 1` (about $10 a month
+idle).
 
 ```sh
 PROJECT=your-project
@@ -48,8 +55,8 @@ SA=$(gcloud projects describe $PROJECT --format='value(projectNumber)')-compute@
 gcloud projects add-iam-policy-binding $PROJECT --member serviceAccount:$SA --role roles/speech.client
 
 gcloud run deploy roadies --source . --project $PROJECT --region us-west1 \
-  --allow-unauthenticated --min-instances 1 --max-instances 1 \
-  --no-cpu-throttling --timeout 3600 --session-affinity \
+  --allow-unauthenticated --min-instances 0 --max-instances 1 \
+  --cpu-throttling --timeout 3600 --session-affinity \
   --set-env-vars LIVEKIT_URL=wss://your-project.livekit.cloud,LIVEKIT_API_KEY=...,LIVEKIT_API_SECRET=...,PRESENTER_KEY=pick-something
 ```
 
