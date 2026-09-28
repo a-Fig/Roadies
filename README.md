@@ -4,7 +4,7 @@
 
 <p align="center">
   <strong>Turn a traffic jam into a hangout.</strong><br>
-  Hands-free voice chat for drivers stuck in the same jam.
+  Hands-free proximity chat for drivers stuck in traffic.
 </p>
 
 <p align="center">
