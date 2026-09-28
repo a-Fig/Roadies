@@ -1,4 +1,21 @@
 <p align="center">
+  <img src="docs/logo.svg" alt="Roadies" width="280">
+</p>
+
+<p align="center">
+  <strong>Turn a traffic jam into a hangout.</strong><br>
+  Hands-free proximity chat for drivers stuck in traffic.
+</p>
+
+<p align="center">
+  <a href="https://roadies.afig.dev/demo"><img alt="Live demo: roadies.afig.dev/demo" src="https://img.shields.io/badge/live%20demo-roadies.afig.dev-F4682C?style=flat-square"></a>
+  <a href="https://github.com/a-Fig/Roadies/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/a-Fig/Roadies/ci.yml?branch=main&style=flat-square&label=CI"></a>
+  <a href="https://github.com/tthy-working/roadies"><img alt="Brand and design: tthy-working/roadies" src="https://img.shields.io/badge/brand%20%26%20design-tthy--working%2Froadies-137584?style=flat-square&logo=github"></a>
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-2A1F1F?style=flat-square&logo=typescript&logoColor=white">
+  <img alt="Node 22+" src="https://img.shields.io/badge/node-22%2B-2A1F1F?style=flat-square&logo=nodedotjs&logoColor=white">
+</p>
+
+<p align="center">
   <img src="docs/images/hero.png" alt="Roadies: three phone screens showing a jam card, a live voice room and a muted voice room" width="100%">
 </p>
 
